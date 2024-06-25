@@ -1,5 +1,5 @@
 secret/*
-token.json
+*.json
 aktdb_data/*
 gg_data/*
 **/__pycache__/*

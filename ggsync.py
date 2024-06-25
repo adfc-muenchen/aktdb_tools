@@ -14,79 +14,31 @@
 # manage custom user fields
 # https://developers.google.com/admin-sdk/directory/v1/guides/manage-schemas
 
-
-import http.client
-import os.path
 import pprint
 import json
 import sys
 
-import google.auth.transport.requests
-from google.oauth2.credentials import Credentials
-import google_auth_oauthlib.flow
-import googleapiclient.discovery
-
-doIt = False
-
-# The scope URL
-SCOPES = ['https://www.googleapis.com/auth/admin.directory.group',
-          'https://www.googleapis.com/auth/admin.directory.user',
-          'https://www.googleapis.com/auth/admin.directory.customer',
-          'https://www.googleapis.com/auth/admin.directory.rolemanagement',
-          'https://www.googleapis.com/auth/admin.directory.userschema',
-          'https://www.googleapis.com/auth/apps.groups.settings']
-
-hdrs = {"Content-Type": "application/json", "Accept": "application/json, text/plain, */*",
-        "Authorization": "Bearer undefined"}
+from gg import Google
+from aktdb import AktDB
 
 
 def isEmpty(s):
     return s is None or s == ""
 
 
-class GGSync:
-    def __init__(self):
-        self.loginADB()
-        # TODO self.getDBHistory()
-        try:
-            with open("aktdb_data/aktdb.json", "r") as fp:
-                self.aktdb = json.load(fp)
-                self.dbMembers = self.aktdb["emailToMember"]
-                self.dbTeams = self.aktdb["teamName2Team"]
-        except Exception as _e:
-            dbMemberList = self.getDBMembers()
-            dbTeamList = self.getDBTeams()
-            # dbMem = getDBMember(token, dbMembers[0]["id"])
-            self.aktdb = {"emailToMember": {}, "teamName2Team": {}}
-            self.sortDB(dbMemberList, dbTeamList)
-
-        creds = None
-        # The file token.json stores the user's access and refresh tokens, and is
-        # created automatically when the authorization flow completes for the first
-        # time.
-        if os.path.exists('token.json'):
-            creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-        # If there are no (valid) credentials available, let the user log in.
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(google.auth.transport.requests.Request())
-            else:
-                flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-                    'secret/credentials.json', SCOPES)
-                creds = flow.run_local_server(port=0)
-            # Save the credentials for the next run
-            with open('token.json', 'w') as token:
-                token.write(creds.to_json())
-
-        self.adminService = googleapiclient.discovery.build(
-            'admin', 'directory_v1', credentials=creds)
-        self.gsService = googleapiclient.discovery.build(
-            'groupssettings', 'v1', credentials=creds)
+class GGSync():
+    def __init__(self, doIt):
+        self.google = Google()
+        self.aktdb = AktDB()
+        aktdbEntries = self.aktdb.getEntries()
+        self.dbMembers = aktdbEntries["dbMembers"]
+        self.dbTeams = aktdbEntries["dbTeams"]
+        self.doIt = doIt
 
         # TODO: funktion für mapGrpG2A, mapGrpA2G
         with open("conf/mapping.json", "r") as fp:
             self.mapGrpA2G = json.load(fp)
-            self.mapGrpG2A = {self.mapGrpA2G[k]                              : k for k in self.mapGrpA2G.keys()}
+            self.mapGrpG2A = {self.mapGrpA2G[k]: k for k in self.mapGrpA2G.keys()}
         with open("conf/ignore_groups.json", "r") as fp:
             self.ignoreGroups = json.load(fp)
 
@@ -98,331 +50,17 @@ class GGSync:
                 self.ggGroups = self.ggdb["groupName2Group"]
         except Exception as _e:
             print("get users list from GG")
-            self.ggUsers = self.getGGUsers()
+            self.ggUsers = self.google.getGGUsers()
             print("get groups list from GG")
-            self.ggGroups = self.getGGGroups()
+            self.ggGroups = self.google.getGGGroups()
             self.sortGG()
 
-        # self.noResponseGrp = self.getGGGroup("noresponse@adfc-muenchen.de")
+        # self.noResponseGrp = self.google.getGGGroup("noresponse@adfc-muenchen.de")
 
         # grp = ggGroups["MUTest"]
-        # grp["members"] = getGGGroupMemberNames(service, grp["id"])
+        # grp["members"] = self.google.getGGGroupMemberNames(grp["id"])
         # with open("ggdb.json", "w") as fp:
         #     json.dump(ggdb, fp, indent=2)
-
-        """
-        Nicht in Groups und Users:
-        uhag@gmx.net Auch kein Member
-        ellen.kramschuster@adfc-muenchen.de
-        ag-verkehr_aktive@groups.adfc-muenchen.de
-        """
-
-    def loginADB(self):
-        with open("secret/aktdb.creds") as fp:
-            body = fp.read()
-        hc = http.client.HTTPSConnection("aktivendb.adfc-muenchen.de")
-        hc.request(method="POST", url="/auth/login", headers=hdrs, body=body)
-        resp = hc.getresponse()
-        # print("msg", resp.msg, resp.status, resp.reason)
-        res = json.loads(resp.read())
-        hc.close()
-        self.token = res["token"]
-        print("token", self.token)
-
-    def getDBMembers(self):
-        hc = http.client.HTTPSConnection("aktivendb.adfc-muenchen.de")
-        hc.request(method="GET", url="/api/members?token=" +
-                   self.token, headers=hdrs)
-        resp = hc.getresponse()
-        # print("msg", resp.msg, resp.status, resp.reason)
-        res = json.loads(resp.read())
-        hc.close()
-        return res
-
-    def getDBHistory(self):
-        hc = http.client.HTTPSConnection("aktivendb.adfc-muenchen.de")
-        hc.request(method="GET", url="/api/histories?token=" +
-                   self.token, headers=hdrs)
-        resp = hc.getresponse()
-        # print("msg", resp.msg, resp.status, resp.reason)
-        res = json.loads(resp.read())
-        hc.close()
-        return res
-
-    def getDBMember(self, id):
-        hc = http.client.HTTPSConnection("aktivendb.adfc-muenchen.de")
-        hc.request(method="GET", url="/api/member/" + str(id) +
-                   "?token=" + self.token, headers=hdrs)
-        resp = hc.getresponse()
-        # print("msg", resp.msg, resp.status, resp.reason)
-        res = json.loads(resp.read())
-        hc.close()
-        return res
-
-    def getDBTeams(self):
-        hc = http.client.HTTPSConnection("aktivendb.adfc-muenchen.de")
-        hc.request(method="GET", url="/api/project-teams?token=" +
-                   self.token, headers=hdrs)
-        resp = hc.getresponse()
-        # print("msg", resp.msg, resp.status, resp.reason)
-        res = json.loads(resp.read())
-        hc.close()
-        return res
-
-    def getDBTeamMembers(self, id):
-        hc = http.client.HTTPSConnection("aktivendb.adfc-muenchen.de")
-        hc.request(method="GET", url="/api/project-team/" +
-                   str(id) + "?token=" + self.token, headers=hdrs)
-        resp = hc.getresponse()
-        # print("msg", resp.msg, resp.status, resp.reason)
-        res = json.loads(resp.read())
-        hc.close()
-        return res
-
-    def setDBTeamEmail(self, id, email):
-        hc = http.client.HTTPSConnection("aktivendb.adfc-muenchen.de")
-        body = json.dumps({"email": email})
-        hc.request(method="PUT", url="/api/project-team/" +
-                   str(id) + "?token=" + self.token, headers=hdrs, body=body)
-        resp = hc.getresponse()
-        # print("msg", resp.msg, resp.status, resp.reason)
-        res = json.loads(resp.read())
-        hc.close()
-        return res
-
-    def addDBMember(self, email_adfc, email_private, fname, lname):
-        hc = http.client.HTTPSConnection("aktivendb.adfc-muenchen.de")
-        body = {"email_adfc": email_adfc,
-                "first_name": fname, "last_name": lname}
-        if email_private is not None:
-            body["email_private"] = email_private
-        body = json.dumps(body)
-        hc.request(method="POST", url="/api/member" + "?token=" +
-                   self.token, headers=hdrs, body=body)
-        resp = hc.getresponse()
-        # print("msg", resp.msg, resp.status, resp.reason)
-        res = json.loads(resp.read())
-        hc.close()
-        return res
-
-    def updDBMember(self, id, key, value):
-        hc = http.client.HTTPSConnection("aktivendb.adfc-muenchen.de")
-        body = {key: value}
-        body = json.dumps(body)
-        hc.request(method="PUT", url="/api/member/" + str(id) +
-                   "?token=" + self.token, headers=hdrs, body=body)
-        resp = hc.getresponse()
-        # print("msg", resp.msg, resp.status, resp.reason)
-        res = json.loads(resp.read())
-        hc.close()
-        return res
-
-    def sortDB(self, dbMemberList, dbTeamList):
-        for dbm in dbMemberList:
-            for emKind in ["email_adfc", "email_private"]:
-                if dbm[emKind] is not None and dbm[emKind] == "undef@undef.de":
-                    dbm[emKind] = ""
-        emailToMember = self.aktdb["emailToMember"]
-        for emKind in ["email_adfc", "email_private"]:
-            emailToMember[emKind] = {}
-            for dbm in dbMemberList:
-                email = dbm.get(emKind)
-                if email is not None and email != "":
-                    email = email.lower()
-                    if emKind == "email_adfc":
-                        if not email.endswith("@adfc-muenchen.de") and not email.endswith("@radentscheid-muenchen.de"):
-                            print("ADFC_Email-Adresse falsch", email)
-                    else:
-                        if email.endswith("@adfc-muenchen.de"):
-                            print("Private_Email-Adresse falsch", email)
-                        em_adfc = dbm.get("email_adfc")
-                        if em_adfc is not None and em_adfc != "":
-                            continue
-                    entries = emailToMember[emKind].get(email)
-                    if entries is not None:
-                        print(emKind, "mehrfach", email, *
-                              [e["name"] for e in entries])
-                    else:
-                        entries = []
-                        emailToMember[emKind][email] = entries
-                    entries.append(dbm)
-        teamName2Team = self.aktdb["teamName2Team"]
-        for dbt in dbTeamList:
-            teamName = dbt["name"]
-            id = dbt["id"]
-            teamName2Team[teamName] = dbt
-            print("Team", teamName, id)
-            detail = self.getDBTeamMembers(id)
-            detail = {"members": detail["members"]}
-            dbt["detail"] = detail
-            memberList = dbt["detail"]["members"]
-            memberListShortened = []
-            for m in memberList:
-                if m["active"] == "0" or m["active"] == 0:
-                    print("inactive member ", m["name"], "in team ", teamName)
-                    pass
-                for emKind in ["email_adfc", "email_private"]:
-                    if m[emKind] is not None and m[emKind] == "undef@undef.de":
-                        m[emKind] = ""
-                ptm = m["project_team_member"]
-                ptm = {"member_role_id": +ptm["member_role_id"]}
-                m = {"email_private": m["email_private"],
-                     "email_adfc": m["email_adfc"],
-                     "active": m["active"],
-                     "name": m["name"],
-                     "project_team_member": ptm
-                     }
-                memberListShortened.append(m)
-            dbt["detail"]["members"] = memberListShortened
-        self.dbMembers = self.aktdb["emailToMember"]
-        self.dbTeams = self.aktdb["teamName2Team"]
-
-        with open("aktdb_data/aktdb.json", "w") as fp:
-            json.dump(self.aktdb, fp, indent=2)
-
-    def getGGUsers(self):
-        userList = []
-        for domain in ["adfc-muenchen.de", "radentscheid-muenchen.de"]:
-            page = None
-            while True:
-                requ = self.adminService.users().list(pageToken=page, domain=domain)
-                respu = requ.execute()
-                userList.extend(respu.get("users"))
-                page = respu.get("nextPageToken")
-                if page is None or page == "":
-                    break
-        users = {u["primaryEmail"]: u for u in userList}
-        return users
-
-    def getGGGroups(self):
-        domainNames = ["adfc-muenchen.de",
-                       "groups.adfc-muenchen.de", "lists.adfc-muenchen.de"]
-        page = None
-        groupList = []
-        for dn in domainNames:
-            while True:
-                reqg = self.adminService.groups().list(pageToken=page, domain=dn)
-                respg = reqg.execute()
-                groupList.extend(respg.get("groups"))
-                page = respg.get("nextPageToken")
-                if page is None or page == "":
-                    break
-        groups = {g["name"]: g for g in groupList}
-        return groups
-
-    def getGGAccessSettings(self, group):
-        reqas = self.gsService.groups().get(groupUniqueId=group["email"])
-        respas = reqas.execute()
-        group["accessSettings"] = respas
-
-    # def getGGMember(self, grpId, email):
-    #     reqm = self.adminService.members().get(groupKey=grpId, memberKey=email)  # , projection="full"
-    #     respm = reqm.execute()
-    #     return respm
-
-    def chgGGMemberRole(self, group, email, role):
-        body = {"role": role}
-        requ = self.adminService.members().update(
-            groupKey=group["id"], memberKey=email, body=body)
-        respu = requ.execute()
-        return respu
-
-    def getGGGroup(self, grpId):
-        reqg = self.adminService.groups().get(groupKey=grpId)
-        respg = reqg.execute()
-        return respg
-
-    def getGGGroupMemberNames(self, grpId):
-        page = None
-        memberList = []
-        while True:
-            reqg = self.adminService.members().list(
-                groupKey=grpId, pageToken=page)  # , projection="full"
-            respg = reqg.execute()
-            ms = respg.get("members")
-            if ms is not None:
-                memberList.extend(ms)
-            page = respg.get("nextPageToken")
-            if page is None or page == "":
-                break
-        members = [{"email": m["email"].lower(), "role": m["role"]}
-                   for m in memberList if m["type"] == "USER"]
-        return members
-
-    def addMemberToGroup(self, group, email, role):
-        body = {
-            "kind": "admin#directory#member",
-            "delivery_settings": "ALL_MAIL",
-            "email": email,
-            "role": role,  # MEMBER or MANAGER
-            "type": "USER",
-            "status": "ACTIVE",
-        }
-        try:
-            reqm = self.adminService.members().insert(
-                groupKey=group["id"], body=body)
-            respm = reqm.execute()
-            return respm
-        except Exception as e:
-            print("Error: cannot add member", email,
-                  "to group", group["name"], ":", e)
-            return None
-
-    def delMemberFromGroup(self, group, email):
-        # body = {"password": "wahrscheinlich_Inaktives_Mitglied"}
-        # try:
-        #     requ = self.adminService.users().update(userKey=email, body=body)
-        #     requ.execute()
-        # except Exception as e:
-        #     print("Error: cannot change password of", email, ":", e)
-        try:
-            reqd = self.adminService.members().delete(
-                groupKey=group["id"], memberKey=email)
-            reqd.execute()
-        except Exception as e:
-            print("Error: cannot delete member", email,
-                  "from group", group["name"], ":", e)
-
-    def addEmailToUser(self, user, privEmail):
-        body = {
-            "emails": [
-                {
-                    "address": privEmail,
-                    "type": "other"
-                }
-            ]
-        }
-        try:
-            requ = self.adminService.users().update(
-                userKey=user["id"], body=body)
-            respu = requ.execute()
-            return respu
-        except Exception as e:
-            print("Error: cannot add email", privEmail,
-                  "to user", user["primaryEmail"], ":", e)
-            return None
-
-    def suspend(self, user):
-        body = {
-            "suspended": True,
-            "suspensionReason": "inactive"
-        }
-        try:
-            requ = self.adminService.users().update(
-                userKey=user["id"], body=body)
-            respu = requ.execute()
-            return respu
-        except Exception as e:
-            print("Error: cannot suspend user", user["primaryEmail"], ":", e)
-            return None
-
-    def setOU2ADFC(self, email):
-        body = {"orgUnitPath": "/ADFC"}
-        try:
-            requ = self.adminService.users().update(userKey=email, body=body)
-            requ.execute()
-        except Exception as e:
-            print("Error: cannot set OU of", email, ":", e)
 
     def sortGG(self):
         self.ggdb = {"email2User": self.ggUsers,
@@ -449,8 +87,9 @@ class GGSync:
             if teamName not in aktTeamNames and teamName not in self.spclGroups:
                 continue
             print("get groupmembers from", grpName)
-            self.getGGAccessSettings(g)
-            g["members"] = grpMembers = self.getGGGroupMemberNames(g["id"])
+            # self.google.getGGAccessSettings(g)
+            g["members"] = grpMembers = self.google.getGGGroupMemberNames(
+                g["id"])
             for gm in grpMembers:
                 gu = self.ggUsers.get(gm["email"])
                 if gu is None:
@@ -493,14 +132,11 @@ class GGSync:
         }
         print("Action: create group", grpName)
         pprint.pprint(grp)
-        if doIt:
-            try:
-                req = self.adminService.groups().insert(body=grp)
-                res = req.execute()
-                return grpName, res
-            except Exception as e:
-                print("Cannot insert group", grpName, ":", e)
-        return None, None
+        if self.doIt:
+            res = self.google.createGroup(grp)
+            if res is None:
+                return None, None
+            return grpName, res
 
     def createMissingGroups(self):
         # compare AG names
@@ -526,7 +162,7 @@ class GGSync:
                 continue
             if grpName not in ggGrpNames:
                 print("Action: create group", grpName)
-                if doIt:
+                if self.doIt:
                     name, res = self.createGroup(grpName, leitung=False)
                     if res is not None:
                         self.ggGroups[name] = res
@@ -536,9 +172,10 @@ class GGSync:
                 continue
             if (grpName + leitung) not in ggGrpNames:
                 print("Action: create group", grpName + leitung)
-                name, res = self.createGroup(grpName, leitung=True)
-                if res is not None:
-                    addedGroup = True
+                if self.doIt:
+                    name, res = self.createGroup(grpName, leitung=True)
+                    if res is not None:
+                        addedGroup = True
         if addedGroup:
             print("Please delete ggdb.json and start again")
             sys.exit(0)
@@ -564,7 +201,7 @@ class GGSync:
 
     # def cleanNoResp(self):
     #     print("Clean up NoResponse Group in Ggroups")
-    #     noRespMembers = self.getGGGroupMemberNames(self.noResponseGrp.get("id"))
+    #     noRespMembers = self.google.getGGGroupMemberNames(self.noResponseGrp.get("id"))
     #     noRespMemberNames = [m.get("email") for m in noRespMembers]
     #     aktMembers = {}
     #     for emKind in ["email_adfc", "email_private"]:
@@ -588,8 +225,8 @@ class GGSync:
     #                 or aktMember["responded_to_questionaire"] != 0 \
     #                 or not isEmpty(aktMember["responded_to_questionaire_at"]):
     #             print("Aktion: delete", gun, "from NoResponse")
-    #             if doIt:
-    #                 self.delMemberFromGroup(self.noResponseGrp, gun)
+    #             if self.doIt:
+    #                 self.google.delMemberFromGroup(self.noResponseGrp, gun)
     #             noRespMemberNames.remove(gun)
     #
     #     for aktMemberName in aktMembers.keys():
@@ -608,8 +245,8 @@ class GGSync:
     #                 and isEmpty(aktMember["responded_to_questionaire_at"]):
     #             print("Aktion: add", aktMemberName, "to NoResponse")
     #             noRespMemberNames.append(aktMemberName)
-    #             if doIt:
-    #                 self.addMemberToGroup(self.noResponseGrp, aktMemberName, "MEMBER")
+    #             if self.doIt:
+    #                 self.google.addMemberToGroup(self.noResponseGrp, aktMemberName, "MEMBER")
 
     def findDBUser(self, fname, lname):
         for emKind in ["email_adfc", "email_private"]:
@@ -674,14 +311,14 @@ class GGSync:
                 email_private = priv.get("email_private")
                 id = priv.get("id")
                 print("addaddr", gun, "to", email_private, "with id", id)
-                if doIt:
+                if self.doIt:
                     self.updDBMember(id, "email_adfc", gun)
                 priv["email_adfc"] = gun
                 self.dbMembers["email_adfc"][gun] = [priv]
                 self.addEmailAdfcInTeams(gun, addr)
                 continue
             # print("add to DB:", gun, addr, fname, lname)
-            # if doIt:
+            # if self.doIt:
             #     self.addDBMember(gun, addr, fname, lname)
             # self.addToDBMembers(gun, addr, fname, lname)
             print("Not in AktivenDB:", fname, lname, gun)
@@ -704,7 +341,7 @@ class GGSync:
                 if name.find("Radfahrschule") > 0:
                     print("aber nicht für die RFS!")
                     continue
-                if doIt:
+                if self.doIt:
                     self.setDBTeamEmail(team["id"], grp["email"])
 
     def memberInGroup(self, grpName, email):
@@ -760,8 +397,8 @@ class GGSync:
                         user["missingEmail"] = True
                         print("Action: add email", privEmail,
                               "to user", adfcEmail)
-                        if doIt:
-                            self.addEmailToUser(user, privEmail)
+                        if self.doIt:
+                            self.google.addEmailToUser(user, privEmail)
                         addedEmails[privEmail + adfcEmail] = True
 
                 foundEmail = None
@@ -777,13 +414,13 @@ class GGSync:
                 if adfcEmail != "" and foundEmail is not None and foundEmail != adfcEmail:
                     print("Action: add member", adfcEmail,
                           "in addition of", foundEmail, "to", grpName)
-                    if doIt:
-                        self.addMemberToGroup(grp, adfcEmail, ggRole)
+                    if self.doIt:
+                        self.google.addMemberToGroup(grp, adfcEmail, ggRole)
                     grp["members"].append({"email": adfcEmail, "role": ggRole})
                 elif foundEmail is None:
                     print("Action: add member", email, "to", grpName)
-                    if doIt:
-                        self.addMemberToGroup(grp, email, ggRole)
+                    if self.doIt:
+                        self.google.addMemberToGroup(grp, email, ggRole)
                     grp["members"].append({"email": email, "role": ggRole})
                 else:
                     gmembers = grp["members"]
@@ -792,8 +429,8 @@ class GGSync:
                     if gmember is not None and ggRole != gmember["role"]:
                         print("Action: change role of ", foundEmail, "in group", grpName, "from", gmember["role"], "to",
                               ggRole)
-                        if doIt:
-                            self.chgGGMemberRole(grp, email, ggRole)
+                        if self.doIt:
+                            self.google.chgGGMemberRole(grp, email, ggRole)
 
                 lgrp = self.ggGroups.get(grpName + " Leitung")
                 if lgrp is None:
@@ -810,8 +447,8 @@ class GGSync:
                 if ggRole == 'MANAGER':  # Vorsitz, add to group Leitung/Sprecherinnen
                     if foundEmail is None:
                         print("Action: add member", email, "to", lgrpName)
-                        if doIt:
-                            self.addMemberToGroup(
+                        if self.doIt:
+                            self.google.addMemberToGroup(
                                 lgrp, email, "MEMBER")  # TODO MANAGER?
                         lgrp["members"].append(
                             {"email": email, "role": "MEMBER"})
@@ -819,8 +456,8 @@ class GGSync:
                     if foundEmail is not None:
                         print("Action: remove member",
                               foundEmail, "from", lgrpName)
-                        if doIt:
-                            self.delMemberFromGroup(lgrp, foundEmail)
+                        if self.doIt:
+                            self.google.delMemberFromGroup(lgrp, foundEmail)
                         lgrp["members"] = [m for m in lgrp["members"]
                                            if m["email"] != foundEmail]
 
@@ -884,8 +521,8 @@ class GGSync:
                             missingAktdb[gmemberEmail] = True
 
                     print("Action: delete", gmemberEmail, "from", grpName)
-                    if doIt:
-                        self.delMemberFromGroup(grp, gmemberEmail)
+                    if self.doIt:
+                        self.google.delMemberFromGroup(grp, gmemberEmail)
                     grp["members"] = [
                         m for m in gmembers if m["email"] != gmemberEmail]
 
@@ -960,8 +597,8 @@ class GGSync:
                 # print("skip ", k)
                 continue
             print("setOU", k, u["name"]["fullName"], u["orgUnitPath"])
-            if doIt:
-                self.setOU2ADFC(k)
+            if self.doIt:
+                self.google.setOU2ADFC(k)
 
     def istAktiv(self, email, default):
         member = self.dbMembers["email_adfc"].get(email)
@@ -979,8 +616,8 @@ class GGSync:
             if user["suspended"] or self.istAktiv(user["primaryEmail"], True):
                 continue
             print("suspend", user["primaryEmail"])
-            if doIt:
-                self.suspend(user)
+            if self.doIt:
+                self.google.suspend(user)
 
     def updAlleAktiven(self):
         alleAktivenGrp = self.ggGroups.get("Alle Aktiven")
@@ -1000,22 +637,23 @@ class GGSync:
                 alleEmails[email] = member
                 if self.istAktiv(email, False) and alleAktiven.get(email) is None and keineEmails.get(email) is None:
                     print("Aktion: add", email, "to Alle Aktiven")
-                    if doIt:
-                        self.addMemberToGroup(alleAktivenGrp, email, "MEMBER")
+                    if self.doIt:
+                        self.google.addMemberToGroup(
+                            alleAktivenGrp, email, "MEMBER")
                     alleAktiven[email] = member
         for email in list(alleAktiven.keys()).copy():
             if not self.istAktiv(email, False) or alleEmails.get(email) is None:
                 if "info@adfc-muenchen.de" == email:
                     continue
                 print("Aktion: delete", email, "from Alle Aktiven")
-                if doIt:
-                    self.delMemberFromGroup(alleAktivenGrp, email)
+                if self.doIt:
+                    self.google.delMemberFromGroup(alleAktivenGrp, email)
                 del alleAktiven[email]
         for email in keineEmails.keys():
             if alleEmails.get(email) is not None:
                 print("Aktion: delete", email, "from Alle Aktiven")
-                if doIt:
-                    self.delMemberFromGroup(alleAktivenGrp, email)
+                if self.doIt:
+                    self.google.delMemberFromGroup(alleAktivenGrp, email)
                 del alleAktiven[email]
 
     def main(self):
@@ -1038,8 +676,3 @@ class GGSync:
 
         # self.cleanNoResp()
         pass
-
-
-if __name__ == '__main__':
-    ggsync = GGSync()
-    ggsync.main()
