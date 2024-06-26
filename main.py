@@ -31,7 +31,7 @@ def main():
                         dest="syncErstanlageToAktDB", default=False)
     parser.add_argument("-g", "--syncAktdbToGgroups", action="store_true",
                         dest="syncAktdbToGgroups", default=False)
-    parser.add_argument("-p", "--phase",
+    parser.add_argument("-p", "--phase", type=int,
                         dest="phase", default=1)
     args = parser.parse_args()
     print("parser.doIt", args.doIt)
@@ -43,7 +43,7 @@ def main():
 
     aksync = None
     if args.syncSerienbriefToAktDB:
-        aksync = AktDBSync(args.doIt, args.phase, "Antworten 2023")
+        aksync = AktDBSync(args.doIt, args.phase, "Antworten")
     if args.syncErstanlageToAktDB:
         aksync = AktDBSync(args.doIt, args.phase, "Erstanlage")
     if aksync is None:

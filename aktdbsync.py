@@ -5,17 +5,6 @@ from googleapiclient.discovery import build
 from aktdb import AktDB
 from gg import Google
 
-fake = [
-    ['Zeitstempel', 'Nachname', 'Vorname', 'Geschlecht', 'Geburtsjahr', 'Postleitzahl', 'ADFC Email-Adresse', 'Eigene Email-Adresse', 'Telefonnummer 1', 'Telefonnummer 2', 'AGs',
-        'Interessen', 'ADFC-Mitgliedsnummer', 'Letztes Erste-Hilfe-Training', 'Nächstes Erste-Hilfe-Training', 'Mit Speicherung einverstanden?', 'Aktives Mitglied?', 'Status', 'Eingetragen'],
-    ['20.06.2024 14:41:11', 'Heckemann', 'Linus', 'M', '1995', '80636', 'linus.heckemann@adfc-muenchen.de',
-        'linus@schreibt.jetzt', '01783079282', '', 'AG Jugend', '', '31201400', '', '', 'Ja', 'Ja'],
-    ['20.06.2024 14:41:11', 'Heckemann', 'Linus', 'M', '1995', '80637', 'linus.heckemann@adfc-muenchen.de',
-        'linus@schreibt.jetzt', '01783079282', '', 'AG Jugend', '', '31201400', '', '', 'Ja', 'Ja', 'STATUS'],
-    ['20.06.2024 20:33:11', 'Able', 'Michael', 'M', '1965', '85737', 'michael.able@adfc-muenchen.de',
-        'michael.able@t-online.de', '01705929733', '', 'AG Landkreis München, OG Ismaning', '', '', '', '', 'Ja', 'Ja']
-]
-
 nullMember = {
     "id": None,
     "name": "",
@@ -82,8 +71,18 @@ def date2String(t):
         if isinstance(t, str):
             s = t
         else:
-            s = t.toISOString()[0:10]
+            s = t.isoformat()[0:10]
     return s
+
+
+def string2Date(s):
+    d = None
+    if s:
+        if not isinstance(s, str):
+            d = s
+        else:
+            d = datetime.datetime.strptime(s, "%d.%m.%Y %H:%M:%S")
+    return d
 
 
 def nameOf(row):
@@ -92,12 +91,12 @@ def nameOf(row):
 
 class AktDBSync:
     def __init__(self, doIt, phase, sname):
-        self.doIt = False  # doIt
+        self.doIt = doIt
         self.sheetData = []
         self.eingetragen = "Eingetragen"
         self.zusatzFelder = [self.eingetragen]
         self.completed = []
-        self.phase = 3  # phase
+        self.phase = phase
         self.excelFile = None
         self.sheetName = sname
         self.colNames = []
@@ -110,7 +109,7 @@ class AktDBSync:
         self.google = Google(sname)
 
     def getSheetData(self):
-        self.sheetData = fake  # self.google.getSheetData()  # fake
+        self.sheetData = self.google.getSheetData()
         self.colNames = self.sheetData[0]
         for i, colName in enumerate(self.colNames):
             self.colNamesIdx[colName] = i
@@ -226,6 +225,8 @@ class AktDBSync:
                     del member["id"]
                     self.aktDB.updDBMember(id, member)
                     member["id"] = id
+                self.google.addValue(
+                    row["row"]-1, self.colNamesIdx[self.eingetragen], "Ja")
             else:
                 continue  # TODO erstanmeldung
             if member.get("id") is None:
@@ -262,6 +263,7 @@ class AktDBSync:
                         " tritt aus der " + agName + " aus" + "\n"
                     if self.phase == 3 and self.doIt:
                         self.aktDB.deleteDBTeamMember(tm.id)
+        print(self.message)
 
     def mapRow(self, row, exi):
         nullMember["project_teams"] = []
@@ -299,11 +301,14 @@ class AktDBSync:
                     val = val.strip()
                 member[dbColName] = val
         member["name"] = nameOf(row)
-        member["latest_first_aid_training"] = date2String(
-            member["latest_first_aid_training"])
-        member["next_first_aid_training"] = date2String(
-            member["next_first_aid_training"])
-        member["latest_contact"] = date2String(member["latest_contact"])
+        member["latest_first_aid_training"] = date2String(string2Date(
+            member["latest_first_aid_training"]))
+        member["next_first_aid_training"] = date2String(string2Date(
+            member["next_first_aid_training"]))
+        member["latest_contact"] = date2String(
+            string2Date(member["latest_contact"]))
+        member["responded_to_questionaire_at"] = date2String(
+            string2Date(member["responded_to_questionaire_at"]))
         member["changed"] = self.logDiffs(member, savedMember, exi) is not None
         return member
 
