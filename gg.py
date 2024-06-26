@@ -14,7 +14,7 @@ SCOPES = ['https://www.googleapis.com/auth/admin.directory.group',
 
 
 class Google:
-    def __init__(self):
+    def __init__(self, sheetName):
         creds = None
         # The file token.json stores the user's access and refresh tokens, and is
         # created automatically when the authorization flow completes for the first
@@ -33,10 +33,62 @@ class Google:
             # Save the credentials for the next run
             with open('token.json', 'w') as token:
                 token.write(creds.to_json())
-        self.adminService = googleapiclient.discovery.build(
-            'admin', 'directory_v1', credentials=creds)
-        # self.gsService = googleapiclient.discovery.build(
-        #     'groupssettings', 'v1', credentials=creds)
+
+        self.sheetName = sheetName
+        if sheetName is None:
+            self.adminService = googleapiclient.discovery.build(
+                'admin', 'directory_v1', credentials=creds)
+            # self.gsService = googleapiclient.discovery.build(
+            #     'groupssettings', 'v1', credentials=creds)
+        else:
+            # Serienbrief AktivenDB
+            self.spreadSheetId = "1jDS9IbRsJ-q3LuOXx2BdWrg05uiTbYXfpRQlsKLfgE0"
+            ssheetService = googleapiclient.discovery.build(
+                'sheets', 'v4', credentials=creds)
+            self.ssheet = ssheetService.spreadsheets()
+
+    def addValue(self, row, col, val):
+        # row, col are 0 based
+        values = [[val]]
+        body = {"values": values}
+        # A B ... Z AA AB ... AZ BA BB ... BZ ...
+        col0 = "" if col < 26 else chr(ord('A') + int(col / 26) - 1)
+        col1 = chr(ord('A') + int(col % 26))
+        srange = self.sheetName + "!" + col0 + col1 + \
+            str(row + 1)  # 0,0-> A1, 1,2->C2 2,1->B3
+        if row == 0:
+            try:
+                result = self.ssheet.values().update(spreadsheetId=self.spreadSheetId,
+                                                     range=srange, valueInputOption="RAW", body=body).execute()
+            except:
+                result = self.ssheet.values().append(spreadsheetId=self.spreadSheetId,
+                                                     range=srange, valueInputOption="RAW", body=body).execute()
+        else:
+            result = self.ssheet.values().update(spreadsheetId=self.spreadSheetId,
+                                                 range=srange, valueInputOption="RAW", body=body).execute()
+
+    def getSheetNames(self):
+        sheet_props = self.ssheet.get(
+            spreadsheetId=self.spreadSheetId, fields="sheets.properties").execute()
+        sheet_names = [sheet_prop["properties"]["title"]
+                       for sheet_prop in sheet_props["sheets"]]
+        return sheet_names
+
+    def validSheetName(self, sname):
+        return sname == self.sheetName
+
+    def getSheetData(self):
+        sheetNames = self.getSheetNames()
+        for sname in sheetNames:
+            if not self.validSheetName(sname):
+                continue
+            try:
+                rows = self.ssheet.values().get(spreadsheetId=self.spreadSheetId, range=self.sheetName). \
+                    execute().get('values', [])
+                return rows
+            except Exception as e:
+                print("Kann Arbeitsblatt " + self.sheetName + " nicht laden")
+                raise e
 
     def getGGUsers(self):
         userList = []

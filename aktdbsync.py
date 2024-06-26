@@ -1,6 +1,20 @@
+import copy
 import datetime
-import logging
+import re
 from googleapiclient.discovery import build
+from aktdb import AktDB
+from gg import Google
+
+fake = [
+    ['Zeitstempel', 'Nachname', 'Vorname', 'Geschlecht', 'Geburtsjahr', 'Postleitzahl', 'ADFC Email-Adresse', 'Eigene Email-Adresse', 'Telefonnummer 1', 'Telefonnummer 2', 'AGs',
+        'Interessen', 'ADFC-Mitgliedsnummer', 'Letztes Erste-Hilfe-Training', 'Nächstes Erste-Hilfe-Training', 'Mit Speicherung einverstanden?', 'Aktives Mitglied?', 'Status', 'Eingetragen'],
+    ['20.06.2024 14:41:11', 'Heckemann', 'Linus', 'M', '1995', '80636', 'linus.heckemann@adfc-muenchen.de',
+        'linus@schreibt.jetzt', '01783079282', '', 'AG Jugend', '', '31201400', '', '', 'Ja', 'Ja'],
+    ['20.06.2024 14:41:11', 'Heckemann', 'Linus', 'M', '1995', '80637', 'linus.heckemann@adfc-muenchen.de',
+        'linus@schreibt.jetzt', '01783079282', '', 'AG Jugend', '', '31201400', '', '', 'Ja', 'Ja', 'STATUS'],
+    ['20.06.2024 20:33:11', 'Able', 'Michael', 'M', '1965', '85737', 'michael.able@adfc-muenchen.de',
+        'michael.able@t-online.de', '01705929733', '', 'AG Landkreis München, OG Ismaning', '', '', '', '', 'Ja', 'Ja']
+]
 
 nullMember = {
     "id": None,
@@ -38,8 +52,6 @@ nullAGMember = {
     "project_team_id": None,
 }
 
-colNames = []
-colNamesIdx = {}
 colNamesMap = {
     "Nachname": "last_name",
     "Vorname": "first_name",
@@ -61,128 +73,359 @@ colNamesMap = {
     "Zeitstempel": "responded_to_questionaire_at",
     "Status": "status",
 }
-emailRegexp = r"/[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?/"
+emailRegexp = r"[a-z0-9]+(?:\.[a-z0-9]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"
+
+
+def date2String(t):
+    s = None
+    if t:
+        if isinstance(t, str):
+            s = t
+        else:
+            s = t.toISOString()[0:10]
+    return s
+
+
+def nameOf(row):
+    return row["Nachname"].strip() + ", " + row["Vorname"].strip()
 
 
 class AktDBSync:
-    def __init__(self, doIt, creds, phase):
-        self.doIt = doIt
-        self.data = {}
+    def __init__(self, doIt, phase, sname):
+        self.doIt = False  # doIt
+        self.sheetData = []
         self.eingetragen = "Eingetragen"
         self.zusatzFelder = [self.eingetragen]
         self.completed = []
-        self.phase = phase
+        self.phase = 3  # phase
         self.excelFile = None
+        self.sheetName = sname
+        self.colNames = []
+        self.colNamesIdx = {}
+        self.entryMap = {}
+        self.members = []
+        self.teams = []
+        self.aktDB = AktDB()
+        self.message = ""
+        self.google = Google(sname)
 
-    def validSheetName(self, sname):
-        return sname == "Antworten" or sname == "Erstanlage"
+    def getSheetData(self):
+        self.sheetData = fake  # self.google.getSheetData()  # fake
+        self.colNames = self.sheetData[0]
+        for i, colName in enumerate(self.colNames):
+            self.colNamesIdx[colName] = i
 
-    def getData(self):
-        service = build('sheets', 'v4', credentials=self.creds)
-        self.ssheet = service.spreadsheets()
-        sheet_props = self.ssheet.get(
-            spreadsheetId=self.spreadSheetId, fields="sheets.properties").execute()
-        sheet_names = [sheet_prop["properties"]["title"]
-                       for sheet_prop in sheet_props["sheets"]]
+    def getAktdbData(self):
+        self.aktDB.loginADB()
+        self.members = self.aktDB.getDBMembers()
+        self.teams = self.aktDB.getDBTeams()
 
-        for i, sname in enumerate(sheet_names):
-            if not self.validSheetName(sname):
+    def getFormEntries(self):
+        vals = []
+        srows = self.sheetData
+        try:
+            eingetragenX = self.colNames.index(self.eingetragen)
+        except:
+            print("Keine Spalte " + self.eingetragen +
+                  " im Arbeitsblatt " + self.sheetName)
+            return None
+        for r, srow in enumerate(srows[1:]):
+            if len(srow) == 0:
                 continue
-            try:
-                rows = self.ssheet.values().get(spreadsheetId=self.spreadSheetId, range=sname). \
-                    execute().get('values', [])
-                self.data[sname] = rows
-            except Exception as e:
-                logging.exception("Kann Arbeitsblatt " +
-                                  sname + " nicht laden")
-                raise e
-
-    def parseGS(self):
-        res = {}
-        for sheet in self.data.keys():
-            vals = []
-            srows = self.data[sheet]
-            headers = srows[0]
-            try:
-                eingetragenX = headers.index(self.eingetragen)
-            except:
+            if len(srow) > eingetragenX and srow[eingetragenX] != "":
                 continue
-            for r, srow in enumerate(srows[1:]):
-                if len(srow) == 0:
-                    continue
-                if len(srow) > eingetragenX and srow[eingetragenX] != "":
-                    continue
-                row = {}
-                for c, v in enumerate(srow):
-                    if c < len(headers) and headers[c] != "":
-                        key = headers[c]
-                    else:
-                        while c >= len(headers):
-                            headers.append("")
-                        key = headers[c] = chr(ord('A') + c)
-                    row[key] = v
-                row["Sheet"] = sheet
-                vals.append(row)
-                # Merken wo das Eingezogen-Datum gespeichert wird, nachdem ebics.xml geschrieben wurde
-                self.completed.append(
-                    {"sheet": sheet, "row": r + 1, "col": eingetragenX})
-            res[sheet] = vals
-        return res
+            # first row = header, and rows in sheet are 1-based
+            row = {"row": r + 2}
+            for c, v in enumerate(srow):
+                if c < len(self.colNames) and self.colNames[c] != "":
+                    key = self.colNames[c]
+                else:
+                    while c >= len(self.colNames):
+                        self.colNames.append("")
+                    key = self.colNames[c] = chr(ord('A') + c)
+                row[key] = v
+            vals.append(row)
+            # Merken wo das Eingetragen-Datum gespeichert wird
+            self.completed.append({"row": r + 1, "col": eingetragenX})
+        return vals
 
-    def getEntries(self):
-        self.getData()
-        self.checkColumns()
-        entries = self.parseGS()
-        return entries
-
-    def addColumn(self, sheetName, colName):
+    def addColumn(self, colName):
         col = 0
-        for row in self.data[sheetName]:
+        for row in self.sheetData:
             col = max(col, len(row))
-        self.addValue(sheetName, 0, col, colName)
-
-    def addValue(self, sheetName, row, col, val):
-        # row, col are 0 based
-        values = [[val]]
-        body = {"values": values}
-        # A B ... Z AA AB ... AZ BA BB ... BZ ...
-        col0 = "" if col < 26 else chr(ord('A') + int(col / 26) - 1)
-        col1 = chr(ord('A') + int(col % 26))
-        srange = sheetName + "!" + col0 + col1 + \
-            str(row + 1)  # 0,0-> A1, 1,2->C2 2,1->B3
-        if row == 0:
-            try:
-                result = self.ssheet.values().update(spreadsheetId=self.spreadSheetId,
-                                                     range=srange, valueInputOption="RAW", body=body).execute()
-            except:
-                result = self.ssheet.values().append(spreadsheetId=self.spreadSheetId,
-                                                     range=srange, valueInputOption="RAW", body=body).execute()
-        else:
-            result = self.ssheet.values().update(spreadsheetId=self.spreadSheetId,
-                                                 range=srange, valueInputOption="RAW", body=body).execute()
-        logging.log(logging.INFO, "result %s", result)
+        self.google.addValue(0, col, colName)
 
     def checkColumns(self):
         # Prüfen ob im sheet die Zusatzfelder angelegt sind
-        for sheet in self.data.keys():
-            srows = self.data[sheet]
-            headers = srows[0]  # ein Pointer nach data, keine Kopie!
-            try:
-                _ = headers.index("Nachname")
-            except:
-                continue
-            for h in self.zusatzFelder:
-                if h not in headers:
-                    self.addColumn(sheet, h)
-                    headers.append(h)
+        srows = self.sheetData
+        try:
+            _ = self.colNames.index("Nachname")
+        except:
+            print("Keine Spalte Nachname im Arbeitsblatt " + self.sheetName)
+            return
+        for h in self.zusatzFelder:
+            if h not in self.colNames:
+                self.addColumn(h)
+                self.colNames.append(h)
 
     def fillEingetragen(self):
         # Spalte "Eingezogen" auf heutiges Datum setzen
         now = datetime.datetime.now()
         d = now.strftime("%Y-%m-%d")
         for c in self.completed:
-            self.addValue(c["sheet"], c["row"], c["col"], d)
+            self.google.addValue(c["row"], c["col"], d)
+
+    def setEntryMap(self, row):
+        name = nameOf(row)
+        prev = self.entryMap.get(name)
+        self.entryMap[name] = row
+        if prev is not None:
+            print("Doppelter Eintrag für " + name + ", vorherige Reihe:" +
+                  str(prev["row"]) + ", jetzt:" + str(row["row"]))
+            for colName in self.colNames:
+                if colName == "Letztes Erste-Hilfe-Training":
+                    prev[colName] = date2String(prev[colName])
+                    row[colName] = date2String(row[colName])
+                if prev.get(colName) != row.get(colName):
+                    print("\t" + colName +
+                          ": " + str(prev.get(colName)) + " => " + str(row.get(colName)))
 
     def storeMembers(self, rows):
-        if self.phase < 1 or self.phase > 4:
+        if self.phase < 1 or self.phase > 3:
             raise Exception("phase invalid", self.phase)
+        # TODO: doppelte Einträge filtern!
+        for row in rows:
+            vorname = row["Vorname"].strip()
+            nachname = row["Nachname"].strip()
+            if self.phase == 1:
+                self.setEntryMap(row)
+            x = [i for i, m in enumerate(self.members) if m["first_name"].strip(
+            ) == vorname and m["last_name"].strip() == nachname]
+            if len(x) == 0:
+                if row["Mit Speicherung einverstanden?"] == "Nein":
+                    self.message += "Schon gelöscht wurde: " + \
+                        nameOf(row) + "\n"
+                    continue
+                self.message += "Unbekannt oder neu: " + nameOf(row) + "\n"
+                continue  # we do not add members to AktivenDB here TODO erstanlage
+            if self.phase == 1:
+                continue
+            # first make sure all names in DB and Excel match
+            if self.phase == 2:  # delete member if storage not wanted
+                if len(x) > 0 and row["Mit Speicherung einverstanden?"] == "Nein":
+                    if self.doIt:
+                        self.aktDB.deleteDBMember(row["id"])
+                    del self.members[x[0]]
+                    self.message += "Gelöscht: " + nameOf(row) + "\n"
+                continue
+            exi = None if len(x) == 0 else self.members[x[0]]
+            member = self.mapRow(row, exi)
+            if exi:
+                if member["changed"] and self.phase == 3 and self.doIt:
+                    id = member["id"]
+                    del member["id"]
+                    self.aktDB.updDBMember(id, member)
+                    member["id"] = id
+            else:
+                continue  # TODO erstanmeldung
+            if member.get("id") is None:
+                print("???")
+                continue
+            # now we get the member again, but this time with project_teams
+            exiMember = self.aktDB.getDBMember(member["id"])
+            exiAGs = exiMember["project_teams"]
+            for agName in member["project_teams"]:
+                x = [i for i, t in enumerate(exiAGs) if t["name"] == agName]
+                if len(x) > 0:
+                    continue
+                agMember = copy.copy(nullAGMember)
+                agMember["member_id"] = member["id"]
+                ag = [a for a in self.teams if a["name"] == agName]
+                if len(ag) == 0:
+                    print("Kann AG " + agName + " für " +
+                          nameOf(row) + " nicht finden")
+                    continue
+                ag = ag[0]
+                agMember["project_team_id"] = ag["id"]
+                self.message += "Mitglied: " + \
+                    nameOf(row) + " möchte der " + \
+                    ag["name"] + " beitreten" + "\n"
+                # self.aktDB.storeDBTeamMember(agMember)
+                # nicht mehr, soll der AG-Leiter machen
+            for team in exiMember["project_teams"]:
+                agName = team["name"]
+                x = [i for i, t in enumerate(
+                    member["project_teams"]) if t == agName]
+                if len(x) == 0:
+                    tm = team["project_team_member"]
+                    self.message += "Mitglied: " + nameOf(row) + \
+                        " tritt aus der " + agName + " aus" + "\n"
+                    if self.phase == 3 and self.doIt:
+                        self.aktDB.deleteDBTeamMember(tm.id)
+
+    def mapRow(self, row, exi):
+        nullMember["project_teams"] = []
+        member = copy.copy(nullMember) if exi is None else copy.copy(exi)
+        savedMember = copy.copy(member)
+        member["responded_to_questionaire"] = 1
+        if member.get("project_teams") is None:
+            member["project_teams"] = []
+        for colName in self.colNames:
+            dbColName = colNamesMap.get(colName)
+            if dbColName is None:
+                continue
+            val = row.get(colName)
+            if dbColName.startswith("email_") and (val is None or val == ""):
+                val = "undef@undef.de"
+            if val is None or val == "":
+                continue
+            if colName == "AGs":
+                for ag in self.teams:
+                    if val.find(ag["name"]) >= 0:
+                        member["project_teams"].append(ag["name"])
+            elif dbColName == "active":
+                member[dbColName] = 0 if val == "Nein" else 1
+            elif dbColName == "registered_for_first_aid_training":
+                member[dbColName] = 1 if val.lower().startsWith("ja") else 0
+            elif dbColName.startswith("email_"):
+                val = val.lower()
+                m = re.match(emailRegexp, val)
+                if m is None or m.string != val:
+                    print("Ungültige Email-Adresse " + val)
+                    val = ""
+                member[dbColName] = val
+            else:
+                if isinstance(val, str):
+                    val = val.strip()
+                member[dbColName] = val
+        member["name"] = nameOf(row)
+        member["latest_first_aid_training"] = date2String(
+            member["latest_first_aid_training"])
+        member["next_first_aid_training"] = date2String(
+            member["next_first_aid_training"])
+        member["latest_contact"] = date2String(member["latest_contact"])
+        member["changed"] = self.logDiffs(member, savedMember, exi) is not None
+        return member
+
+    def logDiffs(self, member, prev, exi):
+        msg = ""
+        # fields not affected by questionaire
+        del member["admin_comments"]
+        del member["reference"]
+        del member["latest_contact"]
+        del member["created_at"]
+        del member["updated_at"]
+        del member["deleted_at"]
+        del member["with_details"]
+        del member["user"]
+        if exi:
+            del member["first_name"]
+            del member["last_name"]
+
+        if member["email_adfc"] != prev["email_adfc"]:
+            if (member["email_adfc"] == "" or member["email_adfc"] == "undef@undef.de") and prev["email_adfc"] != "" and prev["email_adfc"] != "undef@undef.de":
+                member["email_adfc"] = prev["email_adfc"]
+            else:
+                msg += "email_adfc:" + \
+                    F'{prev["email_adfc"]}' + "=>" + \
+                    F'{member["email_adfc"]}' + " "
+        elif exi:
+            del member["email_adfc"]
+
+        if member["email_private"] != prev["email_private"]:
+            if (member["email_private"] == "" or member["email_private"] == "undef@undef.de") and prev["email_private"] != "" and prev["email_private"] != "undef@undef.de":
+                member["email_private"] = prev["email_private"]
+            else:
+                msg += "email_private:" + \
+                    F'{prev["email_private"]}' + "=>" + \
+                    F'{member["email_private"]}' + " "
+        elif exi:
+            del member["email_private"]
+
+        if member["phone_primary"] != prev["phone_primary"]:
+            msg += "phone_primary:" + \
+                F'{prev["phone_primary"]}' + "=>" + \
+                F'{member["phone_primary"]}' + " "
+        elif exi:
+            del member["phone_primary"]
+
+        if member["phone_secondary"] != prev["phone_secondary"]:
+            msg += "phone_secondary:" + \
+                F'{prev["phone_secondary"]}' + "=>" + \
+                F'{member["phone_secondary"]}' + " "
+        elif exi:
+            del member["phone_secondary"]
+
+        if member["address"] != prev["address"]:
+            msg += "address:" + F'{prev["address"]}' + \
+                "=>" + F'{member["address"]}' + " "
+        elif exi:
+            del member["address"]
+
+        if member["gender"] != prev["gender"]:
+            msg += "gender:" + F'{prev["gender"]}' + \
+                "=>" + F'{member["gender"]}' + " "
+        elif exi:
+            del member["gender"]
+
+        if member["birthday"] != prev["birthday"]:
+            msg += "birthday:" + F'{prev["birthday"]
+                                    }' + "=>" + F'{member["birthday"]}' + " "
+        elif exi:
+            del member["birthday"]
+
+        if member["interests"] != prev["interests"]:
+            msg += "interests:" + F'{prev["interests"]
+                                     }' + "=>" + F'{member["interests"]}' + " "
+        elif exi:
+            del member["interests"]
+
+        if member["adfc_id"] != prev["adfc_id"]:
+            msg += "adfc_id:" + F'{prev["adfc_id"]}' + \
+                "=>" + F'{member["adfc_id"]}' + " "
+        elif exi:
+            del member["adfc_id"]
+
+        if member["active"] != prev["active"]:
+            msg += "active:" + F'{prev["active"]}' + \
+                "=>" + F'{member["active"]}' + " "
+        elif exi:
+            del member["active"]
+
+        if member["status"] != prev["status"]:
+            msg += "status:" + F'{prev["status"]}' + \
+                "=>" + F'{member["status"]}' + " "
+        elif exi:
+            del member["status"]
+
+        if member["responded_to_questionaire"] != prev["responded_to_questionaire"]:
+            msg += "responded_to_questionaire:" + \
+                F'{prev["responded_to_questionaire"]}' + "=>" + \
+                F'{member["responded_to_questionaire"]}' + " "
+        elif exi:
+            del member["responded_to_questionaire"]
+
+        if member["responded_to_questionaire_at"] != prev["responded_to_questionaire_at"]:
+            msg += "responded_to_questionaire_at:" + \
+                F'{prev["responded_to_questionaire_at"]}' + "=>" + \
+                F'{member["responded_to_questionaire_at"]}' + " "
+        elif exi:
+            del member["responded_to_questionaire_at"]
+
+        if exi is None:
+            if member["latest_first_aid_training"]:
+                self.message += "Neues Mitglied " + member["name"] + " möchte als EHK-Datum " + \
+                    F'{member["latest_first_aid_training"]}' + "\n"
+                member["latest_first_aid_training"] = None
+        else:
+            if member["latest_first_aid_training"] and member["latest_first_aid_training"] != exi["latest_first_aid_training"]:
+                self.message += "Mitglied: " + F'{member["name"]}' + " möchte das EHK-Datum von " + F'{
+                    exi["latest_first_aid_training"]}' + " auf " + F'{member["latest_first_aid_training"]}' + " ändern\n"
+                member["latest_first_aid_training"] = exi["latest_first_aid_training"]
+        if msg == "":
+            return None
+        msg = ("New" if exi is None else "Existing") + \
+            " Member:" + member["name"] + ": " + msg
+        print(msg)
+        self.message += msg + "\n"
+        return msg

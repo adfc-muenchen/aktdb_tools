@@ -7,8 +7,7 @@ hdrs = {"Content-Type": "application/json", "Accept": "application/json, text/pl
 
 class AktDB:
     def __init__(self):
-        # Serienbrief AktivenDB
-        self.spreadSheetId = "1jDS9IbRsJ-q3LuOXx2BdWrg05uiTbYXfpRQlsKLfgE0"
+        pass
 
     def loginADB(self):
         with open("secret/aktdb.creds") as fp:
@@ -42,6 +41,16 @@ class AktDB:
         hc.close()
         return res
 
+    def deleteDBMember(self, id):
+        hc = http.client.HTTPSConnection("aktivendb.adfc-muenchen.de")
+        hc.request(method="DELETE", url="/api/member/" + str(id) +
+                   "?token=" + self.token, headers=hdrs)
+        resp = hc.getresponse()
+        # print("msg", resp.msg, resp.status, resp.reason)
+        res = json.loads(resp.read())
+        hc.close()
+        return res
+
     def getDBTeams(self):
         hc = http.client.HTTPSConnection("aktivendb.adfc-muenchen.de")
         hc.request(method="GET", url="/api/project-teams?token=" +
@@ -52,7 +61,7 @@ class AktDB:
         hc.close()
         return res
 
-    def getDBTeamMembers(self, id):
+    def getDBTeamMember(self, id):
         hc = http.client.HTTPSConnection("aktivendb.adfc-muenchen.de")
         hc.request(method="GET", url="/api/project-team/" +
                    str(id) + "?token=" + self.token, headers=hdrs)
@@ -88,12 +97,33 @@ class AktDB:
         hc.close()
         return res
 
-    def updDBMember(self, id, key, value):
+    def updDBMember(self, id, body):
         hc = http.client.HTTPSConnection("aktivendb.adfc-muenchen.de")
-        body = {key: value}
         body = json.dumps(body)
         hc.request(method="PUT", url="/api/member/" + str(id) +
                    "?token=" + self.token, headers=hdrs, body=body)
+        resp = hc.getresponse()
+        # print("msg", resp.msg, resp.status, resp.reason)
+        res = json.loads(resp.read())
+        hc.close()
+        return res
+
+    def storeDBTeamMember(self, teamMember):
+        hc = http.client.HTTPSConnection("aktivendb.adfc-muenchen.de")
+        body = {}  # TODO
+        body = json.dumps(body)
+        hc.request(method="POST", url="/api/project-team-member" + "?token=" +
+                   self.token, headers=hdrs, body=body)
+        resp = hc.getresponse()
+        # print("msg", resp.msg, resp.status, resp.reason)
+        res = json.loads(resp.read())
+        hc.close()
+        return res
+
+    def deleteDBTeamMember(self, id):
+        hc = http.client.HTTPSConnection("aktivendb.adfc-muenchen.de")
+        hc.request(method="DELETE", url="/api/project-team-member/" + str(id) +
+                   "?token=" + self.token, headers=hdrs)
         resp = hc.getresponse()
         # print("msg", resp.msg, resp.status, resp.reason)
         res = json.loads(resp.read())

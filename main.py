@@ -1,8 +1,7 @@
 import argparse
-import getpass
+import pprint
 import os
 import sys
-
 from gg import Google
 from ggsync import GGSync
 from aktdbsync import AktDBSync
@@ -26,17 +25,36 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-x", "--execute", action="store_true",
                         dest="doIt", default=False)
+    parser.add_argument("-s", "--syncSerienbriefToAktDB", action="store_true",
+                        dest="syncSerienbriefToAktDB", default=False)
+    parser.add_argument("-e", "--syncErstanlageToAktDB", action="store_true",
+                        dest="syncErstanlageToAktDB", default=False)
+    parser.add_argument("-g", "--syncAktdbToGgroups", action="store_true",
+                        dest="syncAktdbToGgroups", default=False)
     parser.add_argument("-p", "--phase",
                         dest="phase", default=1)
     args = parser.parse_args()
     print("parser.doIt", args.doIt)
 
-    ggsync = GGSync(args.doIt)
-    ggsync.main()
+    if args.syncAktdbToGgroups:
+        ggsync = GGSync(args.doIt)
+        ggsync.syncAktdbToGgroups()
+        return
 
-    # aksync = AktDBSync(args.doIt, args.phase)
-    # entries = aksync.getEntries()
-    # aksync.storeMembers(entries)
+    aksync = None
+    if args.syncSerienbriefToAktDB:
+        aksync = AktDBSync(args.doIt, args.phase, "Antworten 2023")
+    if args.syncErstanlageToAktDB:
+        aksync = AktDBSync(args.doIt, args.phase, "Erstanlage")
+    if aksync is None:
+        print("use params -s, -e or -d")
+        return
+    aksync.getSheetData()
+    aksync.checkColumns()
+    aksync.getAktdbData()
+    entries = aksync.getFormEntries()
+    aksync.storeMembers(entries)
+    # pprint.pprint(entries)
 
 
 if __name__ == '__main__':

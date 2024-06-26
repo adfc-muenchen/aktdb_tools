@@ -28,7 +28,7 @@ def isEmpty(s):
 
 class GGSync():
     def __init__(self, doIt):
-        self.google = Google()
+        self.google = Google(None)
         self.aktdb = AktDB()
         aktdbEntries = self.aktdb.getEntries()
         self.dbMembers = aktdbEntries["dbMembers"]
@@ -656,7 +656,7 @@ class GGSync():
                     self.google.delMemberFromGroup(alleAktivenGrp, email)
                 del alleAktiven[email]
 
-    def main(self):
+    def syncAktdbToGgroups(self):
         self.setOU()
         self.listSpcl()
         # self.createMissingGroups()
