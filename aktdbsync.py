@@ -4,6 +4,7 @@ import re
 from googleapiclient.discovery import build
 from aktdb import AktDB
 from gg import Google
+from utils import string2Date, date2String
 
 nullMember = {
     "id": None,
@@ -65,26 +66,6 @@ colNamesMap = {
 emailRegexp = r"[a-z0-9]+(?:\.[a-z0-9]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"
 
 
-def date2String(t):
-    s = None
-    if t:
-        if isinstance(t, str):
-            s = t
-        else:
-            s = t.isoformat()[0:10]
-    return s
-
-
-def string2Date(s):
-    d = None
-    if s:
-        if not isinstance(s, str):
-            d = s
-        else:
-            d = datetime.datetime.strptime(s, "%d.%m.%Y %H:%M:%S")
-    return d
-
-
 def nameOf(row):
     return row["Nachname"].strip() + ", " + row["Vorname"].strip()
 
@@ -105,7 +86,7 @@ class AktDBSync:
         self.members = []
         self.teams = []
         self.aktDB = AktDB()
-        self.message = ""
+        self.message = []
         self.google = Google(sname)
 
     def getSheetData(self):
@@ -202,10 +183,9 @@ class AktDBSync:
             ) == vorname and m["last_name"].strip() == nachname]
             if len(x) == 0:
                 if row["Mit Speicherung einverstanden?"] == "Nein":
-                    self.message += "Schon gelöscht wurde: " + \
-                        nameOf(row) + "\n"
+                    self.message.append("Schon gelöscht wurde: " + nameOf(row))
                     continue
-                self.message += "Unbekannt oder neu: " + nameOf(row) + "\n"
+                self.message.append("Unbekannt oder neu: " + nameOf(row))
                 continue  # we do not add members to AktivenDB here TODO erstanlage
             if self.phase == 1:
                 continue
@@ -215,7 +195,7 @@ class AktDBSync:
                     if self.doIt:
                         self.aktDB.deleteDBMember(row["id"])
                     del self.members[x[0]]
-                    self.message += "Gelöscht: " + nameOf(row) + "\n"
+                    self.message.append("Gelöscht: " + nameOf(row))
                 continue
             exi = None if len(x) == 0 else self.members[x[0]]
             member = self.mapRow(row, exi)
@@ -230,7 +210,7 @@ class AktDBSync:
             else:
                 continue  # TODO erstanmeldung
             if member.get("id") is None:
-                print("???")
+                print("???")  # TODO
                 continue
             # now we get the member again, but this time with project_teams
             exiMember = self.aktDB.getDBMember(member["id"])
@@ -248,9 +228,8 @@ class AktDBSync:
                     continue
                 ag = ag[0]
                 agMember["project_team_id"] = ag["id"]
-                self.message += "Mitglied: " + \
-                    nameOf(row) + " möchte der " + \
-                    ag["name"] + " beitreten" + "\n"
+                self.message.append(
+                    "Mitglied: " + nameOf(row) + " möchte der " + ag["name"] + " beitreten")
                 # self.aktDB.storeDBTeamMember(agMember)
                 # nicht mehr, soll der AG-Leiter machen
             for team in exiMember["project_teams"]:
@@ -259,11 +238,11 @@ class AktDBSync:
                     member["project_teams"]) if t == agName]
                 if len(x) == 0:
                     tm = team["project_team_member"]
-                    self.message += "Mitglied: " + nameOf(row) + \
-                        " tritt aus der " + agName + " aus" + "\n"
+                    self.message.append("Mitglied: " + nameOf(row) +
+                                        " tritt aus der " + agName + " aus")
                     if self.phase == 3 and self.doIt:
                         self.aktDB.deleteDBTeamMember(tm.id)
-        print(self.message)
+        return "\n".join(self.message)
 
     def mapRow(self, row, exi):
         nullMember["project_teams"] = []
@@ -419,18 +398,17 @@ class AktDBSync:
 
         if exi is None:
             if member["latest_first_aid_training"]:
-                self.message += "Neues Mitglied " + member["name"] + " möchte als EHK-Datum " + \
-                    F'{member["latest_first_aid_training"]}' + "\n"
+                self.message.append("Neues Mitglied " + member["name"] + " möchte als EHK-Datum " +
+                                    F'{member["latest_first_aid_training"]}')
                 member["latest_first_aid_training"] = None
         else:
             if member["latest_first_aid_training"] and member["latest_first_aid_training"] != exi["latest_first_aid_training"]:
-                self.message += "Mitglied: " + F'{member["name"]}' + " möchte das EHK-Datum von " + F'{
-                    exi["latest_first_aid_training"]}' + " auf " + F'{member["latest_first_aid_training"]}' + " ändern\n"
+                self.message.append("Mitglied: " + F'{member["name"]}' + " möchte das EHK-Datum von " + F'{
+                    exi["latest_first_aid_training"]}' + " auf " + F'{member["latest_first_aid_training"]}' + " ändern")
                 member["latest_first_aid_training"] = exi["latest_first_aid_training"]
         if msg == "":
             return None
         msg = ("New" if exi is None else "Existing") + \
             " Member:" + member["name"] + ": " + msg
-        print(msg)
-        self.message += msg + "\n"
+        self.message.append(msg)
         return msg

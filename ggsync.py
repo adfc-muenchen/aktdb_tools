@@ -14,7 +14,6 @@
 # manage custom user fields
 # https://developers.google.com/admin-sdk/directory/v1/guides/manage-schemas
 
-import pprint
 import json
 import sys
 
@@ -34,6 +33,7 @@ class GGSync():
         self.dbMembers = aktdbEntries["dbMembers"]
         self.dbTeams = aktdbEntries["dbTeams"]
         self.doIt = doIt
+        self.message = []
 
         # TODO: funktion für mapGrpG2A, mapGrpA2G
         with open("conf/mapping.json", "r") as fp:
@@ -131,12 +131,12 @@ class GGSync():
             "description": desc,
         }
         print("Action: create group", grpName)
-        pprint.pprint(grp)
+        self.message.append("Erzeuge neue Gruppe" + grpName)
         if self.doIt:
             res = self.google.createGroup(grp)
             if res is None:
                 return None, None
-            return grpName, res
+        return grpName, res
 
     def createMissingGroups(self):
         # compare AG names
@@ -161,7 +161,6 @@ class GGSync():
             if grpName in self.ignoreGroups:
                 continue
             if grpName not in ggGrpNames:
-                print("Action: create group", grpName)
                 if self.doIt:
                     name, res = self.createGroup(grpName, leitung=False)
                     if res is not None:
@@ -171,7 +170,6 @@ class GGSync():
             if (grpName + leitung) in self.ignoreGroups:
                 continue
             if (grpName + leitung) not in ggGrpNames:
-                print("Action: create group", grpName + leitung)
                 if self.doIt:
                     name, res = self.createGroup(grpName, leitung=True)
                     if res is not None:
@@ -225,6 +223,7 @@ class GGSync():
     #                 or aktMember["responded_to_questionaire"] != 0 \
     #                 or not isEmpty(aktMember["responded_to_questionaire_at"]):
     #             print("Aktion: delete", gun, "from NoResponse")
+    #             self.message.append("")
     #             if self.doIt:
     #                 self.google.delMemberFromGroup(self.noResponseGrp, gun)
     #             noRespMemberNames.remove(gun)
@@ -244,6 +243,7 @@ class GGSync():
     #         if aktMember["responded_to_questionaire"] == 0 \
     #                 and isEmpty(aktMember["responded_to_questionaire_at"]):
     #             print("Aktion: add", aktMemberName, "to NoResponse")
+    #             self.message.append("")
     #             noRespMemberNames.append(aktMemberName)
     #             if self.doIt:
     #                 self.google.addMemberToGroup(self.noResponseGrp, aktMemberName, "MEMBER")
@@ -311,6 +311,8 @@ class GGSync():
                 email_private = priv.get("email_private")
                 id = priv.get("id")
                 print("addaddr", gun, "to", email_private, "with id", id)
+                self.message.append(
+                    "Private Adresse " + email_private + " zu " + gun + " hinzugefügt")
                 if self.doIt:
                     self.updDBMember(id, "email_adfc", gun)
                 priv["email_adfc"] = gun
@@ -336,11 +338,13 @@ class GGSync():
                 continue
             if team["email"] != grp["email"]:
                 # print("a:", team["email"], "g", grp["email"])
-                print("Action(in AktivenDB): set email of team",
-                      name, "to", grp["email"])
                 if name.find("Radfahrschule") > 0:
-                    print("aber nicht für die RFS!")
                     continue
+                else:
+                    print("Action(in AktivenDB): set email of team",
+                          name, "to", grp["email"])
+                    self.message.append(
+                        "In der AktivenDB setze email von " + name + " auf " + grp["email"])
                 if self.doIt:
                     self.setDBTeamEmail(team["id"], grp["email"])
 
@@ -397,6 +401,8 @@ class GGSync():
                         user["missingEmail"] = True
                         print("Action: add email", privEmail,
                               "to user", adfcEmail)
+                        self.message.append(
+                            "Private Adresse " + privEmail + " zu " + adfcEmail + " hinzugefügt")
                         if self.doIt:
                             self.google.addEmailToUser(user, privEmail)
                         addedEmails[privEmail + adfcEmail] = True
@@ -414,11 +420,15 @@ class GGSync():
                 if adfcEmail != "" and foundEmail is not None and foundEmail != adfcEmail:
                     print("Action: add member", adfcEmail,
                           "in addition of", foundEmail, "to", grpName)
+                    self.message.append("Zusätzliche Adresse " + adfcEmail +
+                                        " für " + foundEmail + " zu " + grpName + " hinzugefügt")
                     if self.doIt:
                         self.google.addMemberToGroup(grp, adfcEmail, ggRole)
                     grp["members"].append({"email": adfcEmail, "role": ggRole})
                 elif foundEmail is None:
                     print("Action: add member", email, "to", grpName)
+                    self.message.append(
+                        "Mitglied " + email + " zu " + grpName + " hinzugefügt")
                     if self.doIt:
                         self.google.addMemberToGroup(grp, email, ggRole)
                     grp["members"].append({"email": email, "role": ggRole})
@@ -429,6 +439,8 @@ class GGSync():
                     if gmember is not None and ggRole != gmember["role"]:
                         print("Action: change role of ", foundEmail, "in group", grpName, "from", gmember["role"], "to",
                               ggRole)
+                        self.message.append(
+                            "Rolle von " + foundEmail + " in " + grpName + " von " + gmember["role"] + " zu " + ggRole + " geändert")
                         if self.doIt:
                             self.google.chgGGMemberRole(grp, email, ggRole)
 
@@ -447,6 +459,8 @@ class GGSync():
                 if ggRole == 'MANAGER':  # Vorsitz, add to group Leitung/Sprecherinnen
                     if foundEmail is None:
                         print("Action: add member", email, "to", lgrpName)
+                        self.message.append(
+                            "Mitglied " + email + " zu " + lgrpName + " hinzugefügt")
                         if self.doIt:
                             self.google.addMemberToGroup(
                                 lgrp, email, "MEMBER")  # TODO MANAGER?
@@ -456,6 +470,8 @@ class GGSync():
                     if foundEmail is not None:
                         print("Action: remove member",
                               foundEmail, "from", lgrpName)
+                        self.message.append(
+                            "Entferne " + foundEmail + " von " + lgrpName)
                         if self.doIt:
                             self.google.delMemberFromGroup(lgrp, foundEmail)
                         lgrp["members"] = [m for m in lgrp["members"]
@@ -468,7 +484,6 @@ class GGSync():
         noEmail = {}
         for grp in sorted(self.ggGroups.values(), key=lambda g: g["name"]):
             grpName = grp["name"]
-            # print("BEGINLOG", grpName)
             if grpName in self.ignoreGroups:
                 continue
             teamName = grpName
@@ -521,6 +536,8 @@ class GGSync():
                             missingAktdb[gmemberEmail] = True
 
                     print("Action: delete", gmemberEmail, "from", grpName)
+                    self.message.append(
+                        "Entferne " + gmemberEmail + " von " + grpName)
                     if self.doIt:
                         self.google.delMemberFromGroup(grp, gmemberEmail)
                     grp["members"] = [
@@ -615,7 +632,8 @@ class GGSync():
         for user in self.ggUsers.values():
             if user["suspended"] or self.istAktiv(user["primaryEmail"], True):
                 continue
-            print("suspend", user["primaryEmail"])
+            print("Aktion: suspend", user["primaryEmail"])
+            self.message.append("Suspendiere " + user["primaryEmail"])
             if self.doIt:
                 self.google.suspend(user)
 
@@ -637,6 +655,8 @@ class GGSync():
                 alleEmails[email] = member
                 if self.istAktiv(email, False) and alleAktiven.get(email) is None and keineEmails.get(email) is None:
                     print("Aktion: add", email, "to Alle Aktiven")
+                    self.message.append(
+                        "Mitglied " + email + " hinzugefügt zu Alle Aktiven")
                     if self.doIt:
                         self.google.addMemberToGroup(
                             alleAktivenGrp, email, "MEMBER")
@@ -646,12 +666,16 @@ class GGSync():
                 if "info@adfc-muenchen.de" == email:
                     continue
                 print("Aktion: delete", email, "from Alle Aktiven")
+                self.message.append("Mitglied " + email +
+                                    " von Alle Aktiven entfernt")
                 if self.doIt:
                     self.google.delMemberFromGroup(alleAktivenGrp, email)
                 del alleAktiven[email]
         for email in keineEmails.keys():
             if alleEmails.get(email) is not None:
                 print("Aktion: delete", email, "from Alle Aktiven")
+                self.message.append("Mitglied " + email +
+                                    " von Alle Aktiven entfernt")
                 if self.doIt:
                     self.google.delMemberFromGroup(alleAktivenGrp, email)
                 del alleAktiven[email]
@@ -665,14 +689,7 @@ class GGSync():
         self.addTeamEmailAddressesToAktb()
         self.addToGG()
         self.suspendInactiveUsers()
-        while True:
-            inp = input("Remove members from groups? (y/n)")
-            if inp == 'y':
-                self.removeFromGG()
-                break
-            if inp == 'n':
-                break
+        self.removeFromGG()
         self.updAlleAktiven()
-
         # self.cleanNoResp()
-        pass
+        return "\n".join(self.message)

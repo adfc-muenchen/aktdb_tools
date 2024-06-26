@@ -1,10 +1,12 @@
 import argparse
+import datetime
 import pprint
 import os
 import sys
 from gg import Google
 from ggsync import GGSync
 from aktdbsync import AktDBSync
+from utils import date2String
 
 
 #  it seems that with "pyinstaller -F" tkinter (resp. TK) does not find data files relative to the MEIPASS dir
@@ -21,6 +23,17 @@ def pyinst(path):
     return path
 
 
+def log(name, msgs):
+    name = name + "_" + \
+        date2String(datetime.datetime.now(), short=False)[
+            0:19].replace(":", "")
+    if len(msgs) == 0:
+        return
+    with open(name, "w") as fp:
+        fp.write(msgs)
+    print(msgs)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-x", "--execute", action="store_true",
@@ -29,7 +42,7 @@ def main():
                         dest="syncSerienbriefToAktDB", default=False)
     parser.add_argument("-e", "--syncErstanlageToAktDB", action="store_true",
                         dest="syncErstanlageToAktDB", default=False)
-    parser.add_argument("-g", "--syncAktdbToGgroups", action="store_true",
+    parser.add_argument("-a", "--syncAktdbToGgroups", action="store_true",
                         dest="syncAktdbToGgroups", default=False)
     parser.add_argument("-p", "--phase", type=int,
                         dest="phase", default=1)
@@ -38,14 +51,18 @@ def main():
 
     if args.syncAktdbToGgroups:
         ggsync = GGSync(args.doIt)
-        ggsync.syncAktdbToGgroups()
+        msgs = ggsync.syncAktdbToGgroups()
+        log("a2g", msgs)
         return
 
+    logName = ""
     aksync = None
     if args.syncSerienbriefToAktDB:
         aksync = AktDBSync(args.doIt, args.phase, "Antworten")
+        logName = "s2a"
     if args.syncErstanlageToAktDB:
         aksync = AktDBSync(args.doIt, args.phase, "Erstanlage")
+        logName = "e2a"
     if aksync is None:
         print("use params -s, -e or -d")
         return
@@ -53,8 +70,8 @@ def main():
     aksync.checkColumns()
     aksync.getAktdbData()
     entries = aksync.getFormEntries()
-    aksync.storeMembers(entries)
-    # pprint.pprint(entries)
+    msgs = aksync.storeMembers(entries)
+    log(logName, msgs)
 
 
 if __name__ == '__main__':
