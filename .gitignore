@@ -1,5 +1,6 @@
 secret/*
 *.json
+*.log
 aktdb_data/*
 gg_data/*
 **/__pycache__/*

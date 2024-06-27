@@ -10,8 +10,6 @@ from utils import date2String
 
 
 #  it seems that with "pyinstaller -F" tkinter (resp. TK) does not find data files relative to the MEIPASS dir
-
-
 def pyinst(path):
     path = path.strip()
     if os.path.exists(path):
@@ -24,11 +22,12 @@ def pyinst(path):
 
 
 def log(name, msgs):
-    name = name + "_" + \
-        date2String(datetime.datetime.now(), short=False)[
-            0:19].replace(":", "")
     if len(msgs) == 0:
         return
+    name = "logs/" + name + "_" + \
+        date2String(datetime.datetime.now(), dateOnly=False)[
+            0:19].replace(":", "") + ".log"
+    os.makedirs("logs", exist_ok=True)
     with open(name, "w") as fp:
         fp.write(msgs)
     print(msgs)
@@ -64,7 +63,7 @@ def main():
         aksync = AktDBSync(args.doIt, args.phase, "Erstanlage")
         logName = "e2a"
     if aksync is None:
-        print("use params -s, -e or -d")
+        print("use params -s, -e or -a")
         return
     aksync.getSheetData()
     aksync.checkColumns()

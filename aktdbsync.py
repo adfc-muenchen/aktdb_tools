@@ -31,6 +31,11 @@ nullMember = {
     "first_name": "",
     "last_name": "",
     "project_teams": [],
+    "created_at": None,
+    "updated_at": None,
+    "deleted_at": None,
+    "with_details": None,
+    "user": None,
 }
 
 nullAGMember = {
@@ -80,6 +85,7 @@ class AktDBSync:
         self.phase = phase
         self.excelFile = None
         self.sheetName = sname
+        self.erstAnlage = sname == "Erstanlage"
         self.colNames = []
         self.colNamesIdx = {}
         self.entryMap = {}
@@ -137,7 +143,6 @@ class AktDBSync:
 
     def checkColumns(self):
         # Prüfen ob im sheet die Zusatzfelder angelegt sind
-        srows = self.sheetData
         try:
             _ = self.colNames.index("Nachname")
         except:
@@ -181,16 +186,22 @@ class AktDBSync:
                 self.setEntryMap(row)
             x = [i for i, m in enumerate(self.members) if m["first_name"].strip(
             ) == vorname and m["last_name"].strip() == nachname]
-            if len(x) == 0:
-                if row["Mit Speicherung einverstanden?"] == "Nein":
-                    self.message.append("Schon gelöscht wurde: " + nameOf(row))
-                    continue
-                self.message.append("Unbekannt oder neu: " + nameOf(row))
-                continue  # we do not add members to AktivenDB here TODO erstanlage
+            if self.erstAnlage:
+                if len(x) != 0:
+                    self.message.append("Schon bekannt: " + nameOf(row))
+                    continue  # for erstanlage member must be unknown
+            else:
+                if len(x) == 0:
+                    if row["Mit Speicherung einverstanden?"] == "Nein":
+                        self.message.append(
+                            "Schon gelöscht wurde: " + nameOf(row))
+                        continue
+                    self.message.append("Unbekannt oder neu: " + nameOf(row))
+                    continue  # we do not add members to AktivenDB here
             if self.phase == 1:
                 continue
             # first make sure all names in DB and Excel match
-            if self.phase == 2:  # delete member if storage not wanted
+            if self.phase == 2 and not self.erstAnlage:  # delete member if storage not wanted
                 if len(x) > 0 and row["Mit Speicherung einverstanden?"] == "Nein":
                     if self.doIt:
                         self.aktDB.deleteDBMember(row["id"])
@@ -199,15 +210,36 @@ class AktDBSync:
                 continue
             exi = None if len(x) == 0 else self.members[x[0]]
             member = self.mapRow(row, exi)
+            now = datetime.datetime.now()
             if exi:
                 if member["changed"] and self.phase == 3 and self.doIt:
                     id = member["id"]
                     del member["id"]
                     self.aktDB.updDBMember(id, member)
                     member["id"] = id
-                self.google.addValue(
-                    row["row"]-1, self.colNamesIdx[self.eingetragen], "Ja")
-            else:
+                    self.google.addValue(
+                        row["row"]-1, self.colNamesIdx[self.eingetragen], date2String(now, dateOnly=False))
+            elif self.erstAnlage:
+                if self.phase == 3 and self.doIt:
+                    self.aktDB.addDBMember(member)
+                    self.google.addValue(
+                        row["row"]-1, self.colNamesIdx[self.eingetragen], date2String(now, dateOnly=False))
+                    if member["email_private"]:
+                        anrede = "Liebe(r) "
+                        if member["gender"] == "M":
+                            anrede = "Lieber "
+                        elif member["gender"] == "F":
+                            anrede = "Liebe "
+                        anrede += member["first_name"] + \
+                            " " + member["last_name"]
+                        try:
+                            self.google.gmail_send_message(
+                                member["email_private"], anrede)
+                        except Exception as e:
+                            msg = "Konnte Bestätigungsemail an " + \
+                                nameOf(row) + "nicht senden"
+                            print(msg)
+                            self.message.append(msg)
                 continue  # TODO erstanmeldung
             if member.get("id") is None:
                 print("???")  # TODO
@@ -313,7 +345,7 @@ class AktDBSync:
                 msg += "email_adfc:" + \
                     F'{prev["email_adfc"]}' + "=>" + \
                     F'{member["email_adfc"]}' + " "
-        elif exi:
+        elif exi or self.erstAnlage:
             del member["email_adfc"]
 
         if member["email_private"] != prev["email_private"]:

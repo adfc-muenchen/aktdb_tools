@@ -1,11 +1,14 @@
-def date2String(t, short=True):
+import datetime
+
+
+def date2String(t, dateOnly=True):
     s = None
     if t:
         if isinstance(t, str):
             s = t
         else:
             s = t.isoformat()
-            if short:
+            if dateOnly:
                 s = s[0:10]
     return s
 

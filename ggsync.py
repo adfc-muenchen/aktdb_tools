@@ -319,10 +319,14 @@ class GGSync():
                 self.dbMembers["email_adfc"][gun] = [priv]
                 self.addEmailAdfcInTeams(gun, addr)
                 continue
-            # print("add to DB:", gun, addr, fname, lname)
+            print("Google user not in AktivenDB:", gun, addr, fname, lname)
             # if self.doIt:
-            #     self.addDBMember(gun, addr, fname, lname)
-            # self.addToDBMembers(gun, addr, fname, lname)
+            #     m = {"email_adfc": gun, "first_name": fname, "last_name": lname}
+            #     if addr is not None:
+            #         m["email_private"] = addr
+            #     self.addDBMember(m)
+            self.addToDBMembers(gun, addr, fname, lname)
+
             print("Not in AktivenDB:", fname, lname, gun)
 
     def addTeamEmailAddressesToAktb(self):

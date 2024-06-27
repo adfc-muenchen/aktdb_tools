@@ -88,18 +88,15 @@ class AktDB:
         hc.close()
         return res
 
-    def addDBMember(self, email_adfc, email_private, fname, lname):
+    def addDBMember(self, member):
         hc = http.client.HTTPSConnection("aktivendb.adfc-muenchen.de")
-        body = {"email_adfc": email_adfc,
-                "first_name": fname, "last_name": lname}
-        if email_private is not None:
-            body["email_private"] = email_private
-        body = json.dumps(body)
+        body = json.dumps(member)
         hc.request(method="POST", url="/api/member" + "?token=" +
                    self.token, headers=hdrs, body=body)
         resp = hc.getresponse()
         checkResp(resp)
         res = json.loads(resp.read())
+        member["id"] = res["id"]
         hc.close()
         return res
 
