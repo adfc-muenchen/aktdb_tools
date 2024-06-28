@@ -4,7 +4,6 @@ from google.oauth2.credentials import Credentials
 import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import base64
-from googleapiclient.errors import HttpError
 from email.message import EmailMessage
 import mimetypes
 

@@ -1,7 +1,6 @@
 import copy
 import datetime
 import re
-from googleapiclient.discovery import build
 from aktdb import AktDB
 from gg import Google
 from utils import string2Date, date2String

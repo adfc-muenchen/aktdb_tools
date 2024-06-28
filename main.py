@@ -1,39 +1,17 @@
 import argparse
-import datetime
-import pprint
-import os
 import sys
 from gg import Google
 from ggsync import GGSync
 from aktdbsync import AktDBSync
-from utils import date2String
-
-
-#  it seems that with "pyinstaller -F" tkinter (resp. TK) does not find data files relative to the MEIPASS dir
-def pyinst(path):
-    path = path.strip()
-    if os.path.exists(path):
-        return path
-    if hasattr(sys, "_MEIPASS"):  # i.e. if running as exe produced by pyinstaller
-        pypath = sys._MEIPASS + "/" + path
-        if os.path.exists(pypath):
-            return pypath
-    return path
-
-
-def log(name, msgs):
-    if len(msgs) == 0:
-        return
-    name = "logs/" + name + "_" + \
-        date2String(datetime.datetime.now(), dateOnly=False)[
-            0:19].replace(":", "") + ".log"
-    os.makedirs("logs", exist_ok=True)
-    with open(name, "w") as fp:
-        fp.write(msgs)
-    print(msgs)
+from gui import Gui
+from utils import log
 
 
 def main():
+    if len(sys.argv) == 1:
+        gui = Gui()
+        gui.startGui()
+        sys.exit(0)
     parser = argparse.ArgumentParser()
     parser.add_argument("-x", "--execute", action="store_true",
                         dest="doIt", default=False)
