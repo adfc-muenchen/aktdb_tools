@@ -187,7 +187,7 @@ class Gui:
                 log("a2g", msgs)
                 return
             if logName == "s2a":
-                aksync = AktDBSync(doIt, phase, "Antworten 2023")
+                aksync = AktDBSync(doIt, phase, "Antworten")
             elif logName == "e2a":
                 aksync = AktDBSync(doIt, phase, "Erstanlage")
             else:

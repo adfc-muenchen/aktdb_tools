@@ -220,9 +220,9 @@ class AktDBSync:
                         row["row"]-1, self.colNamesIdx[self.eingetragen], date2String(now, dateOnly=False))
             elif self.erstAnlage:
                 if self.phase == 3 and self.doIt:
-                    self.aktDB.addDBMember(member)
-                    self.google.addValue(
-                        row["row"]-1, self.colNamesIdx[self.eingetragen], date2String(now, dateOnly=False))
+                    # self.aktDB.addDBMember(member)
+                    # self.google.addValue(
+                    #     row["row"]-1, self.colNamesIdx[self.eingetragen], date2String(now, dateOnly=False))
                     if member["email_private"]:
                         anrede = "Liebe(r) "
                         if member["gender"] == "M":
@@ -232,11 +232,18 @@ class AktDBSync:
                         anrede += member["first_name"] + \
                             " " + member["last_name"]
                         try:
+                            with open("begruessungs.txt", "r", encoding="utf-8") as fp:
+                                txt = fp.read()
+                            txt = txt.format(anrede=anrede)
                             self.google.gmail_send_message(
-                                member["email_private"], anrede)
+                                dest=member["email_private"],
+                                subject="Bestätigung der Eintragung in die AktivenDB des ADFC München eV",
+                                body=txt,
+                                attachment_filename="Datenschutzerklärung.pdf",
+                                useHtml=True)
                         except Exception as e:
                             msg = "Konnte Bestätigungsemail an " + \
-                                nameOf(row) + "nicht senden"
+                                nameOf(row) + "nicht senden :" + str(e)
                             print(msg)
                             self.message.append(msg)
                 continue  # TODO erstanmeldung

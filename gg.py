@@ -252,43 +252,38 @@ class Google:
             print("Error: cannot create Group", grp.name)
             return None
 
-    def gmail_send_message(self, dest, anrede):
+    def gmail_send_message(self, dest, subject, body, attachment_filename=None, useHtml=False):
         """Create and send an email message
         Print the returned  message id
         Returns: Message object, including message id
         see https://developers.google.com/gmail/api/guides/sending
         """
-        txt = anrede + "\n"
-        with open("begruessungs.txt", "r", encoding="utf-8") as fp:
-            txt += fp.read()
-
         message = EmailMessage()
-        message.set_content(txt)
+        # see https://stackoverflow.com/questions/41403458/how-do-i-send-html-formatted-emails-through-the-gmail-api-for -python
+        if useHtml:
+            message.add_header("Content-Type", "text/html")
+            message.set_payload(body, charset="utf8")
+        else:
+            message.set_content(body)
         message["To"] = dest
         # message["From"] = "..." has no effect! Sender is always the logged in user!
-        message["Subject"] = "Bestätigung der Eintragung in die AktivenDB des ADFC München eV"
+        message["Subject"] = subject
 
-        # attachment
-        attachment_filename = "Datenschutzerklärung.pdf"
-        # guessing the MIME type
-        type_subtype, _ = mimetypes.guess_type(attachment_filename)
-        maintype, subtype = type_subtype.split("/")
+        if attachment_filename is not None:
+            # guessing the MIME type
+            type_subtype, _ = mimetypes.guess_type(attachment_filename)
+            maintype, subtype = type_subtype.split("/")
 
-        with open(attachment_filename, "rb") as fp:
-            attachment_data = fp.read()
-        message.add_attachment(
-            attachment_data, maintype, subtype, filename=attachment_filename)
+            with open(attachment_filename, "rb") as fp:
+                attachment_data = fp.read()
+            message.add_attachment(
+                attachment_data, maintype, subtype, filename=attachment_filename)
 
-        # encoded message
         encoded_message = base64.urlsafe_b64encode(
             message.as_bytes()).decode()
 
         create_message = {"raw": encoded_message}
         # pylint: disable=E1101
-        send_message = (
-            self.gmailService.users()
-            .messages()
-            .send(userId="me", body=create_message)
-            .execute()
-        )
+        send_message = self.gmailService.users().messages().send(
+            userId="me", body=create_message).execute()
         print(f'Message Id: {send_message["id"]}')
