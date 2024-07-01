@@ -27,7 +27,7 @@ def isEmpty(s):
 
 class GGSync():
     def __init__(self, doIt):
-        self.google = Google(None)
+        self.google = Google(mustBeAdmin=True)
         self.aktdb = AktDB()
         aktdbEntries = self.aktdb.getEntries()
         self.dbMembers = aktdbEntries["dbMembers"]

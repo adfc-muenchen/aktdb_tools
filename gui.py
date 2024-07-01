@@ -5,6 +5,7 @@ import customtkinter
 
 from aktdbsync import AktDBSync
 from ggsync import GGSync
+from sendSB import SendeSB
 from utils import log
 
 onMsg = "Jetzt aber wirklich!"
@@ -144,6 +145,36 @@ class Gui:
         # Zeile 2
         btn3.grid(column=0, row=2, columnspan=3, pady=10)
 
+        # Frame c4
+        c4 = ttk.Frame(c, padding=(3, 6), width=400, height=200,
+                       borderwidth=3, relief="solid")
+        c4.grid(column=0, row=3, sticky=(N, W, E, S), pady=5)
+        c4.columnconfigure(0, weight=1)
+        c4.columnconfigure(1, weight=1)
+        c4.columnconfigure(2, weight=1)
+
+        # Zeile 0
+        lbl4h = Label(
+            c4, text="Sende Serienbrief zur DB-Aktualisierung")
+        # Zeile 1
+        lbl41 = Label(c4, text="Ausführung:")
+        sw4_var = StringVar(value=offMsg)
+        sw4 = customtkinter.CTkSwitch(
+            c4, text="", variable=sw4_var, onvalue=onMsg, offvalue=offMsg)
+        lbl42 = Label(c4, textvariable=sw4_var)
+        # Zeile 2
+        btn4 = Button(c4, text="Start", command=lambda: self.run(
+            "ssb", None, sw4_var, btn4), bg="red")
+
+        # Zeile 0
+        lbl4h.grid(column=0, row=0, columnspan=3, sticky=(N, W, E, S))
+        # Zeile 1
+        lbl41.grid(column=0, row=1, sticky=(W))
+        sw4.grid(column=1, row=1, sticky=(N, W, E, S))
+        lbl42.grid(column=2, row=1, sticky=(E))
+        # Zeile 2
+        btn4.grid(column=0, row=2, columnspan=3, pady=10)
+
         textContainer = Frame(root, borderwidth=2, relief="sunken")
         text = Text(textContainer, wrap="none", borderwidth=0,
                     cursor="arrow")  # width=100, height=40,
@@ -160,6 +191,8 @@ class Gui:
         textHsb.grid(row=1, column=0, sticky="ew")
         textContainer.rowconfigure(0, weight=1)
         textContainer.columnconfigure(0, weight=1)
+
+    ##########
 
     def startGui(self):
         self.text.delete("1.0", END)
@@ -185,6 +218,11 @@ class Gui:
                 ggsync = GGSync(doIt)
                 msgs = ggsync.syncAktdbToGgroups()
                 log("a2g", msgs)
+                return
+            if logName == "ssb":
+                sendeSB = SendeSB(doIt)
+                msgs = sendeSB.sendeSB()
+                log("ssb", msgs)
                 return
             if logName == "s2a":
                 aksync = AktDBSync(doIt, phase, "Antworten")

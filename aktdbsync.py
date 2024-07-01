@@ -91,7 +91,7 @@ class AktDBSync:
         self.teams = []
         self.aktDB = AktDB()
         self.message = []
-        self.google = Google(sname)
+        self.google = Google(sheetName=sname)
 
     def getSheetData(self):
         self.sheetData = self.google.getSheetData()

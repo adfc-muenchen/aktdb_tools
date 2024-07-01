@@ -1,3 +1,6 @@
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 import os
 import google.auth.transport.requests
 from google.oauth2.credentials import Credentials
@@ -19,7 +22,7 @@ SCOPES = ['https://www.googleapis.com/auth/admin.directory.group',
 
 
 class Google:
-    def __init__(self, sheetName):
+    def __init__(self, sheetName=None, mustBeAdmin=False):
         creds = None
         # The file token.json stores the user's access and refresh tokens, and is
         # created automatically when the authorization flow completes for the first
@@ -40,7 +43,7 @@ class Google:
                 token.write(creds.to_json())
 
         self.sheetName = sheetName
-        if sheetName is None:
+        if mustBeAdmin:
             self.adminService = googleapiclient.discovery.build(
                 'admin', 'directory_v1', credentials=creds)
             # self.gsService = googleapiclient.discovery.build(
@@ -277,26 +280,47 @@ class Google:
         Returns: Message object, including message id
         see https://developers.google.com/gmail/api/guides/sending
         """
-        message = EmailMessage()
-        # see https://stackoverflow.com/questions/41403458/how-do-i-send-html-formatted-emails-through-the-gmail-api-for -python
-        if useHtml:
-            message.add_header("Content-Type", "text/html")
-            message.set_payload(body, charset="utf8")
-        else:
-            message.set_content(body)
-        message["To"] = dest
-        # message["From"] = "..." has no effect! Sender is always the logged in user!
-        message["Subject"] = subject
+        if False:
+            message = EmailMessage()
+            # see https://stackoverflow.com/questions/41403458/how-do-i-send-html-formatted-emails-through-the-gmail-api-for -python
+            if useHtml:
+                message.add_header("Content-Type", "text/html")
+                message.set_payload(body, charset="utf8")
+            else:
+                message.set_content(body)
+            message["To"] = dest
+            # message["From"] = "..." has no effect! Sender is always the logged in user!
+            message["Subject"] = subject
 
-        if attachment_filename is not None:
+            if attachment_filename is not None:
+                # guessing the MIME type
+                type_subtype, _ = mimetypes.guess_type(attachment_filename)
+                maintype, subtype = type_subtype.split("/")
+
+                with open(attachment_filename, "rb") as fp:
+                    attachment_data = fp.read()
+                message.add_attachment(
+                    attachment_data, maintype, subtype, filename=attachment_filename)
+
+        if attachment_filename is None:
+            message = MIMEText(body)
+        else:
+            message = MIMEMultipart()
+            message.attach(MIMEText(body))
             # guessing the MIME type
             type_subtype, _ = mimetypes.guess_type(attachment_filename)
             maintype, subtype = type_subtype.split("/")
-
             with open(attachment_filename, "rb") as fp:
                 attachment_data = fp.read()
-            message.add_attachment(
-                attachment_data, maintype, subtype, filename=attachment_filename)
+            att = MIMEBase(maintype, subtype)
+            att.set_payload(attachment_data)
+            att.add_header("Content-Disposition", "attachment",
+                           filename=attachment_filename)
+            message.attach(att)
+
+        message["To"] = dest
+        # message["From"] = "..." has no effect! Sender is always the logged in user!
+        message["Subject"] = subject
 
         encoded_message = base64.urlsafe_b64encode(
             message.as_bytes()).decode()
@@ -305,4 +329,5 @@ class Google:
         # pylint: disable=E1101
         send_message = self.gmailService.users().messages().send(
             userId="me", body=create_message).execute()
+
         print(f'Message Id: {send_message["id"]}')

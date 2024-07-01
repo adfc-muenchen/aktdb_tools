@@ -49,7 +49,7 @@ class SendeSB:
         self.emails = 0
 
         self.aktDB = AktDB()
-        self.google = Google(self.sheetName)
+        self.google = Google(sheetName=self.sheetName)
         self.message = []
 
     def sendeSB(self):
@@ -79,8 +79,6 @@ class SendeSB:
             self.mailtxt = fp.read()
 
         for row in self.members:
-            if row["last_name"].strip() != "Uhlenberg":
-                continue
             self.sendeEmail(row)
         self.message.append(f"total {self.total} antworten {self.antworten} inaktiv {
             self.inaktiv} emails {self.emails}")
@@ -89,11 +87,10 @@ class SendeSB:
     def sendeEmail(self, row):
         self.total += 1
         name = row["last_name"].strip() + "," + row["first_name"].strip()
-        if self.antwortMap[name]:
+        if self.antwortMap.get(name):
             print(f"Schon geantwortet: {name}")
             self.antworten += 1
-            if row["last_name"].strip() != "Uhlenberg":
-                return
+            return
         if not row["active"]:
             print(f"Inaktiv: {name}")
             self.inaktiv += 1
@@ -116,7 +113,7 @@ class SendeSB:
         verifLink = verifLinkUrl + self.row2Params(row)
         msg = "Email an " + name + " mit URL " + verifLink
         self.message.append(msg)
-        print(msg)
+        # print(msg)
         txt = self.mailtxt.format(anrede=anrede, verifLink=verifLink)
 
         if self.doIt:

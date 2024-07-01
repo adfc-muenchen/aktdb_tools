@@ -50,6 +50,6 @@ def log(name, msgs):
         date2String(datetime.datetime.now(), dateOnly=False)[
             0:19].replace(":", "") + ".log"
     os.makedirs("logs", exist_ok=True)
-    with open(name, "w") as fp:
+    with open(name, "w", encoding="utf-8") as fp:
         fp.write(msgs)
     print(msgs)
