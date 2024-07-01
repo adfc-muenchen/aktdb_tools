@@ -82,7 +82,6 @@ class AktDBSync:
         self.zusatzFelder = [self.eingetragen]
         self.completed = []
         self.phase = phase
-        self.excelFile = None
         self.sheetName = sname
         self.erstAnlage = sname == "Erstanlage"
         self.colNames = []
@@ -177,6 +176,8 @@ class AktDBSync:
     def storeMembers(self, rows):
         if self.phase < 1 or self.phase > 3:
             raise Exception("phase invalid", self.phase)
+        with open("begruessungs.txt", "r", encoding="utf-8") as fp:
+            begrtxt = fp.read()
         # TODO: doppelte Einträge filtern!
         for row in rows:
             vorname = row["Vorname"].strip()
@@ -199,7 +200,6 @@ class AktDBSync:
                     continue  # we do not add members to AktivenDB here
             if self.phase == 1:
                 continue
-            # first make sure all names in DB and Excel match
             if self.phase == 2 and not self.erstAnlage:  # delete member if storage not wanted
                 if len(x) > 0 and row["Mit Speicherung einverstanden?"] == "Nein":
                     if self.doIt:
@@ -220,9 +220,11 @@ class AktDBSync:
                         row["row"]-1, self.colNamesIdx[self.eingetragen], date2String(now, dateOnly=False))
             elif self.erstAnlage:
                 if self.phase == 3 and self.doIt:
-                    # self.aktDB.addDBMember(member)
-                    # self.google.addValue(
-                    #     row["row"]-1, self.colNamesIdx[self.eingetragen], date2String(now, dateOnly=False))
+                    # bei Erstanlage erst mal auf inaktiv setzen
+                    member["active"] = 0
+                    self.aktDB.addDBMember(member)
+                    self.google.addValue(
+                        row["row"]-1, self.colNamesIdx[self.eingetragen], date2String(now, dateOnly=False))
                     if member["email_private"]:
                         anrede = "Liebe(r) "
                         if member["gender"] == "M":
@@ -232,9 +234,7 @@ class AktDBSync:
                         anrede += member["first_name"] + \
                             " " + member["last_name"]
                         try:
-                            with open("begruessungs.txt", "r", encoding="utf-8") as fp:
-                                txt = fp.read()
-                            txt = txt.format(anrede=anrede)
+                            txt = begrtxt.format(anrede=anrede)
                             self.google.gmail_send_message(
                                 dest=member["email_private"],
                                 subject="Bestätigung der Eintragung in die AktivenDB des ADFC München eV",

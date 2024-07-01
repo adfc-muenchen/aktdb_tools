@@ -4,6 +4,7 @@ from gg import Google
 from ggsync import GGSync
 from aktdbsync import AktDBSync
 from gui import Gui
+from sendSB import SendeSB
 from utils import log
 
 
@@ -21,6 +22,8 @@ def main():
                         dest="syncErstanlageToAktDB", default=False)
     parser.add_argument("-a", "--syncAktdbToGgroups", action="store_true",
                         dest="syncAktdbToGgroups", default=False)
+    parser.add_argument("-b", "--sendeSerienbrief", action="store_true",
+                        dest="sendeSerienbrief", default=False)
     parser.add_argument("-p", "--phase", type=int,
                         dest="phase", default=1)
     args = parser.parse_args()
@@ -30,6 +33,11 @@ def main():
         ggsync = GGSync(args.doIt)
         msgs = ggsync.syncAktdbToGgroups()
         log("a2g", msgs)
+        return
+    if args.sendeSerienbrief:
+        sendsb = SendeSB(args.doIt)
+        msgs = sendsb.sendeSB()
+        log("ssb", msgs)
         return
 
     logName = ""

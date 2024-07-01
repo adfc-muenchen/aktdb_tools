@@ -45,6 +45,15 @@ class Google:
                 'admin', 'directory_v1', credentials=creds)
             # self.gsService = googleapiclient.discovery.build(
             #     'groupssettings', 'v1', credentials=creds)
+            try:
+                self.getGGUser("admin@adfc-muenchen.de")
+            except Exception as e:
+                if e.status_code == 403:
+                    print(
+                        "Sie müssen ein Google Admin sein, um Google Groups ändern zu können!")
+                    print(
+                        "Bitte die Datei token.json löschen, im Browser als admin einloggen und neu starten.")
+                    raise Exception("Auth Error")
         else:
             # Serienbrief AktivenDB
             self.spreadSheetId = "1jDS9IbRsJ-q3LuOXx2BdWrg05uiTbYXfpRQlsKLfgE0"
@@ -52,9 +61,8 @@ class Google:
                 'sheets', 'v4', credentials=creds)
             self.ssheet = ssheetService.spreadsheets()
 
-        if sheetName == "Erstanlage":
-            self.gmailService = googleapiclient.discovery.build(
-                "gmail", "v1", credentials=creds)
+        self.gmailService = googleapiclient.discovery.build(
+            "gmail", "v1", credentials=creds)
 
     def addValue(self, row, col, val):
         # row, col are 0 based
@@ -98,6 +106,17 @@ class Google:
             except Exception as e:
                 print("Kann Arbeitsblatt " + self.sheetName + " nicht laden")
                 raise e
+
+    def getGGUser(self, email):
+        requ = self.adminService.users().get(userKey=email)
+        try:
+            respu = requ.execute()
+            print("respu", str(respu))
+            return respu
+        except Exception as e:
+            if email != "admin@adfc-muenchen.de":
+                print("Kann User " + email + " nicht laden")
+            raise e
 
     def getGGUsers(self):
         userList = []

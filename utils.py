@@ -21,8 +21,14 @@ def string2Date(s):
         if not isinstance(s, str):
             d = s
         else:
-            d = datetime.datetime.strptime(s, "%d.%m.%Y %H:%M:%S")
+            try:
+                d = datetime.datetime.strptime(s, "%d.%m.%Y %H:%M:%S")
+            except:
+                d = datetime.datetime.strptime(s, "%d.%m.%Y")
     return d
+
+
+"time data '20.07.2024' does not match format '%d.%m.%Y %H:%M:%S'"
 
 
 #  it seems that with "pyinstaller -F" tkinter (resp. TK) does not find data files relative to the MEIPASS dir
