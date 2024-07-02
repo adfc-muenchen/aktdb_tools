@@ -20,7 +20,7 @@ Groups Settings API
 Service Management API
 Service Usage API
 
-Benutzt werden bisher nur Admin SDK API, Google Sheets API (siehe gg.py ssheetService, adminService)
+Benutzt werden bisher nur Admin SDK API, Google Sheets API und Gmail API (siehe gg.py ssheetService, adminService, gmailService)
 Die Scopes stehen in gg.py.
 Ändert sich was an den APIs oder Scopes, oder ist das Token sonst ungültig, oder token.json fehlt,
 muß für den sync AktivenDB->GGroups der Browser für einen Google Admin 

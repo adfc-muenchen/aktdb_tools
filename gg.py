@@ -114,7 +114,6 @@ class Google:
         requ = self.adminService.users().get(userKey=email)
         try:
             respu = requ.execute()
-            print("respu", str(respu))
             return respu
         except Exception as e:
             if email != "admin@adfc-muenchen.de":

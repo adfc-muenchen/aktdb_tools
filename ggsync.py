@@ -327,8 +327,6 @@ class GGSync():
             #     self.addDBMember(m)
             self.addToDBMembers(gun, addr, fname, lname)
 
-            print("Not in AktivenDB:", fname, lname, gun)
-
     def addTeamEmailAddressesToAktb(self):
         for team in sorted(self.dbTeams.values(), key=lambda t: t["name"]):
             name = team["name"]
@@ -630,7 +628,10 @@ class GGSync():
         # if len(member) != 1:
         #     print("xxxxxx", member)  # e.g. michael uhlenberg has 2 entries
         member = member[0]
-        return member["active"] != "0" and member["active"] != 0
+        active = member.get("active")
+        # active=none sehen wir bei den Wittmans und bei emails ...@radentscheid-muenchen.de
+        # die wollen wir nicht suspendieren (oder doch?)
+        return active is None or (active != "0" and active != 0)
 
     def suspendInactiveUsers(self):
         for user in self.ggUsers.values():

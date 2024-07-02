@@ -190,6 +190,10 @@ class AktDBSync:
                 if len(x) != 0:
                     self.message.append("Schon bekannt: " + nameOf(row))
                     continue  # for erstanlage member must be unknown
+                if row["Mit Speicherung einverstanden?"] == "Nein":
+                    self.message.append(
+                        "Nicht mit Speicherung einverstanden: " + nameOf(row))
+                    continue
             else:
                 if len(x) == 0:
                     if row["Mit Speicherung einverstanden?"] == "Nein":
