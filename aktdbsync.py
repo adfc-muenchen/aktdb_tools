@@ -53,7 +53,8 @@ colNamesMap = {
     "Geburtsjahr": "birthday",
     "Postleitzahl": "address",
     "ADFC Email-Adresse": "email_adfc",
-    "Eigene Email-Adresse": "email_private",
+    "Eigene Email-Adresse": "email_private",  # in Antworten
+    "E-Mail-Adresse": "email_private",  # in Erstanlage
     "Telefonnummer 1": "phone_primary",
     "Telefonnummer 2": "phone_secondary",
     "AGs": "AGs",
@@ -176,7 +177,7 @@ class AktDBSync:
     def storeMembers(self, rows):
         if self.phase < 1 or self.phase > 3:
             raise Exception("phase invalid", self.phase)
-        with open("begruessungs.txt", "r", encoding="utf-8") as fp:
+        with open("begruessung.html", "r", encoding="utf-8") as fp:
             begrtxt = fp.read()
         # TODO: doppelte Einträge filtern!
         for row in rows:
@@ -238,16 +239,20 @@ class AktDBSync:
                         anrede += member["first_name"] + \
                             " " + member["last_name"]
                         try:
-                            txt = begrtxt.format(anrede=anrede)
+                            data = {"anrede": anrede, **member}
+                            for k, v in data.items():
+                                if v is None:
+                                    data[k] = "-"
+                            txt = begrtxt.format_map(data)
                             self.google.gmail_send_message(
                                 dest=member["email_private"],
                                 subject="Bestätigung der Eintragung in die AktivenDB des ADFC München eV",
                                 body=txt,
-                                attachment_filename="Datenschutzerklärung.pdf",
+                                # attachment_filename="Datenschutzerklärung.pdf",
                                 useHtml=True)
                         except Exception as e:
                             msg = "Konnte Bestätigungsemail an " + \
-                                nameOf(row) + "nicht senden :" + str(e)
+                                nameOf(row) + " nicht senden :" + str(e)
                             print(msg)
                             self.message.append(msg)
                 continue  # TODO erstanmeldung

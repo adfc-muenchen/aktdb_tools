@@ -111,6 +111,10 @@ Viele Meldungen haben informativen Character, etwa, welche inaktiven Mitglieder 
 
 Wie erwähnt, wird dieser Programmteil nur am Jahresende von Thomas Schubert "wirklich" ausgeführt. Mit "Erstmal testen" bekommt man aber jederzeit eine Liste der URLs mit vorbelegten Feldern, und wenn man darauf klickt, sieht man das Formular, was das Mitglied am Jahresende zu sehen bekäme.
 
+#### Vorbereitung
+
+Vor Verschicken des Serienbriefs bereinigen wir den alten Zustand. Dazu werden mit phpMyAdmin in der AktivenDB in der Spalte responded_to_questionaire alle Werte auf 0 gesetzt. ( SQL: update members set responded_to_questionaire = 0 ). Dann werden in der Backend-Tabelle alle Zeilen außer der ersten im Arbeitsblatt “Antworten” gelöscht. Im Formular werden alle Antworten gelöscht.
+
 ## Sicherheit
 
 Google-Admin-Berechtigungen werden von Andreas Schön vergeben. Z.B. habe ich ein Konto michael.uhlenberg@adfc-muenchen.de und ein Konto michael.uhlenberg.admin@adfc-muenchen.de. Somit kann man das Admin-Konto separat wieder löschen. Unbedingt sollte auch ein zweiter Faktor eingeschaltet werden. Die Berechtigungen für die Serienbrief-Tabelle sind gleichfalls sehr restriktiv zu vergeben. Die Datei credentials.json sollte nur an künftige Benutzer des Programms weitergegeben werden. Vor größeren Änderungen sollte ein Backup der AktivenDB gemacht werden. Über Backups von GG wird separat geredet.

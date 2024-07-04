@@ -300,12 +300,12 @@ class Google:
                     attachment_data = fp.read()
                 message.add_attachment(
                     attachment_data, maintype, subtype, filename=attachment_filename)
-
+        type = "html" if useHtml else "plain"
         if attachment_filename is None:
-            message = MIMEText(body)
+            message = MIMEText(body, type)
         else:
             message = MIMEMultipart()
-            message.attach(MIMEText(body))
+            message.attach(MIMEText(body, type))
             # guessing the MIME type
             type_subtype, _ = mimetypes.guess_type(attachment_filename)
             maintype, subtype = type_subtype.split("/")
