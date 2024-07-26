@@ -32,12 +32,14 @@ def main():
     if args.syncAktdbToGgroups:
         ggsync = GGSync(args.doIt)
         msgs = ggsync.syncAktdbToGgroups()
-        log("a2g", msgs)
+        if args.doIt:
+            log("a2g", msgs)
         return
     if args.sendeSerienbrief:
         sendsb = SendeSB(args.doIt)
         msgs = sendsb.sendeSB()
-        log("ssb", msgs)
+        if args.doIt:
+            log("ssb", msgs)
         return
 
     logName = ""
@@ -56,7 +58,8 @@ def main():
     aksync.getAktdbData()
     entries = aksync.getFormEntries()
     msgs = aksync.storeMembers(entries)
-    log(logName, msgs)
+    if args.doIt:
+        log(logName, msgs)
 
 
 if __name__ == '__main__':

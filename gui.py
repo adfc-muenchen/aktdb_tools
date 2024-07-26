@@ -217,12 +217,14 @@ class Gui:
             if logName == "a2g":
                 ggsync = GGSync(doIt)
                 msgs = ggsync.syncAktdbToGgroups()
-                log("a2g", msgs)
+                if doIt:
+                    log("a2g", msgs)
                 return
             if logName == "ssb":
                 sendeSB = SendeSB(doIt)
                 msgs = sendeSB.sendeSB()
-                log("ssb", msgs)
+                if doIt:
+                    log("ssb", msgs)
                 return
             if logName == "s2a":
                 aksync = AktDBSync(doIt, phase, "Antworten")
@@ -236,7 +238,8 @@ class Gui:
             aksync.getAktdbData()
             entries = aksync.getFormEntries()
             msgs = aksync.storeMembers(entries)
-            log(logName, msgs)
+            if doIt:
+                log(logName, msgs)
         except Exception as e:
             print("Exception", e)
         finally:

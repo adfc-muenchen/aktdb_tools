@@ -9,7 +9,7 @@ def date2String(t, dateOnly=True):
         if isinstance(t, str):
             s = t
         else:
-            s = t.isoformat()
+            s = t.isoformat(sep=" ", timespec="seconds")  # yyyy-mm-dd hh:mm:ss
             if dateOnly:
                 s = s[0:10]
     return s

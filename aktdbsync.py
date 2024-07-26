@@ -255,7 +255,7 @@ class AktDBSync:
                                 nameOf(row) + " nicht senden :" + str(e)
                             print(msg)
                             self.message.append(msg)
-                continue  # TODO erstanmeldung
+                continue
             if member.get("id") is None:
                 print("???")  # TODO
                 continue
@@ -333,6 +333,7 @@ class AktDBSync:
             member["next_first_aid_training"]))
         member["latest_contact"] = date2String(
             string2Date(member["latest_contact"]))
+        member["datum"] = member["responded_to_questionaire_at"]
         member["responded_to_questionaire_at"] = date2String(
             string2Date(member["responded_to_questionaire_at"]))
         member["changed"] = self.logDiffs(member, savedMember, exi) is not None

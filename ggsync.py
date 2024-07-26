@@ -38,7 +38,8 @@ class GGSync():
         # TODO: funktion für mapGrpG2A, mapGrpA2G
         with open("conf/mapping.json", "r") as fp:
             self.mapGrpA2G = json.load(fp)
-            self.mapGrpG2A = {self.mapGrpA2G[k]: k for k in self.mapGrpA2G.keys()}
+            self.mapGrpG2A = {self.mapGrpA2G[k]
+                : k for k in self.mapGrpA2G.keys()}
         with open("conf/ignore_groups.json", "r") as fp:
             self.ignoreGroups = json.load(fp)
 
@@ -406,8 +407,10 @@ class GGSync():
                         self.message.append(
                             "Private Adresse " + privEmail + " zu " + adfcEmail + " hinzugefügt")
                         if self.doIt:
-                            self.google.addEmailToUser(user, privEmail)
-                        addedEmails[privEmail + adfcEmail] = True
+                            if not self.google.addEmailToUser(user, privEmail):
+                                self.message.append(
+                                    "Error: Konnte private Adresse nicht hinzufügen")
+                            addedEmails[privEmail + adfcEmail] = True
 
                 foundEmail = None
                 if adfcEmail != "" and self.memberInGroup(grpName, adfcEmail):
