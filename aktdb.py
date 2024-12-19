@@ -53,6 +53,9 @@ class AktDB:
                    "?token=" + self.token, headers=hdrs)
         resp = hc.getresponse()
         checkResp(resp)
+        if resp.status == 204:
+            hc.close()
+            return "deleted"
         res = json.loads(resp.read())
         hc.close()
         return res

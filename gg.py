@@ -24,12 +24,13 @@ SCOPES = ['https://www.googleapis.com/auth/admin.directory.group',
 class Google:
     def __init__(self, sheetName=None, mustBeAdmin=False):
         creds = None
+        tokenFile = "token.admin.json" if mustBeAdmin else "token.akmgmt.json"
         # The file token.json stores the user's access and refresh tokens, and is
         # created automatically when the authorization flow completes for the first
         # time.
-        if os.path.exists('token.json'):
+        if os.path.exists(tokenFile):
             creds = Credentials.from_authorized_user_file(
-                'token.json', SCOPES)
+                tokenFile, SCOPES)
         # If there are no (valid) credentials available, let the user log in.
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
@@ -39,7 +40,7 @@ class Google:
                     'secret/credentials.json', SCOPES)
                 creds = flow.run_local_server(port=0)
             # Save the credentials for the next run
-            with open('token.json', 'w') as token:
+            with open(tokenFile, 'w') as token:
                 token.write(creds.to_json())
 
         self.sheetName = sheetName

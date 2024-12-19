@@ -3,6 +3,7 @@ import sys
 from gg import Google
 from ggsync import GGSync
 from aktdbsync import AktDBSync
+from delInactiveMembers import DeleteInactiveMembers
 from gui import Gui
 from sendSB import SendeSB
 from utils import log
@@ -24,6 +25,8 @@ def main():
                         dest="syncAktdbToGgroups", default=False)
     parser.add_argument("-b", "--sendeSerienbrief", action="store_true",
                         dest="sendeSerienbrief", default=False)
+    parser.add_argument("-d", "--deleteInactiveMembers", action="store_true",
+                        dest="deleteInactiveMembers", default=False)
     parser.add_argument("-p", "--phase", type=int,
                         dest="phase", default=1)
     args = parser.parse_args()
@@ -40,6 +43,13 @@ def main():
         msgs = sendsb.sendeSB()
         if args.doIt:
             log("ssb", msgs)
+        print(msgs)
+        return
+    if args.deleteInactiveMembers:
+        delIAM = DeleteInactiveMembers(args.doIt)
+        msgs = delIAM.deleteInactiveMembers()
+        if args.doIt:
+            log("a2g", msgs)
         return
 
     logName = ""
@@ -60,6 +70,7 @@ def main():
     msgs = aksync.storeMembers(entries)
     if args.doIt:
         log(logName, msgs)
+    print(msgs)
 
 
 if __name__ == '__main__':

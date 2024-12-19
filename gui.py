@@ -6,6 +6,7 @@ import customtkinter
 from aktdbsync import AktDBSync
 from ggsync import GGSync
 from sendSB import SendeSB
+from delInactiveMembers import DeleteInactiveMembers
 from utils import log
 
 onMsg = "Jetzt aber wirklich!"
@@ -175,6 +176,36 @@ class Gui:
         # Zeile 2
         btn4.grid(column=0, row=2, columnspan=3, pady=10)
 
+        # Frame c5
+        c5 = ttk.Frame(c, padding=(3, 6), width=400, height=200,
+                       borderwidth=3, relief="solid")
+        c5.grid(column=0, row=4, sticky=(N, W, E, S), pady=5)
+        c5.columnconfigure(0, weight=1)
+        c5.columnconfigure(1, weight=1)
+        c5.columnconfigure(2, weight=1)
+
+        # Zeile 0
+        lbl5h = Label(
+            c5, text="Lösche inaktive Mitglieder")
+        # Zeile 1
+        lbl51 = Label(c5, text="Ausführung:")
+        sw5_var = StringVar(value=offMsg)
+        sw5 = customtkinter.CTkSwitch(
+            c5, text="", variable=sw5_var, onvalue=onMsg, offvalue=offMsg)
+        lbl52 = Label(c5, textvariable=sw5_var)
+        # Zeile 2
+        btn5 = Button(c5, text="Start", command=lambda: self.run(
+            "dim", None, sw5_var, btn5), bg="red")
+
+        # Zeile 0
+        lbl5h.grid(column=0, row=0, columnspan=3, sticky=(N, W, E, S))
+        # Zeile 1
+        lbl51.grid(column=0, row=1, sticky=(W))
+        sw5.grid(column=1, row=1, sticky=(N, W, E, S))
+        lbl52.grid(column=2, row=1, sticky=(E))
+        # Zeile 2
+        btn5.grid(column=0, row=2, columnspan=3, pady=10)
+
         textContainer = Frame(root, borderwidth=2, relief="sunken")
         text = Text(textContainer, wrap="none", borderwidth=0,
                     cursor="arrow")  # width=100, height=40,
@@ -185,7 +216,7 @@ class Gui:
                             command=text.xview)
         text.configure(yscrollcommand=textVsb.set,
                        xscrollcommand=textHsb.set)
-        textContainer.grid(row=4, columnspan=2, padx=5, pady=2, sticky="nsew")
+        textContainer.grid(row=5, columnspan=2, padx=5, pady=2, sticky="nsew")
         text.grid(row=0, column=0, sticky="nsew")
         textVsb.grid(row=0, column=1, sticky="ns")
         textHsb.grid(row=1, column=0, sticky="ew")
@@ -214,18 +245,30 @@ class Gui:
                     phase = 3
             doIt = doIt.get()
             doIt = doIt == onMsg
+
             if logName == "a2g":
                 ggsync = GGSync(doIt)
                 msgs = ggsync.syncAktdbToGgroups()
                 if doIt:
                     log("a2g", msgs)
+                print(msgs)
                 return
+
             if logName == "ssb":
                 sendeSB = SendeSB(doIt)
                 msgs = sendeSB.sendeSB()
                 if doIt:
                     log("ssb", msgs)
                 return
+
+            if logName == "dim":
+                dim = DeleteInactiveMembers(doIt)
+                msgs = dim.deleteInactiveMembers()
+                if doIt:
+                    log("dim", msgs)
+                print(msgs)
+                return
+
             if logName == "s2a":
                 aksync = AktDBSync(doIt, phase, "Antworten")
             elif logName == "e2a":
@@ -240,6 +283,7 @@ class Gui:
             msgs = aksync.storeMembers(entries)
             if doIt:
                 log(logName, msgs)
+            print(msgs)
         except Exception as e:
             print("Exception", e)
         finally:

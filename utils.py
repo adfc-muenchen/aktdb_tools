@@ -18,7 +18,7 @@ def date2String(t, dateOnly=True):
 def string2Date(s):
     d = None
     if s:
-        if not isinstance(s, str):
+        if not isinstance(s, str) or s[4] == "-" and s[7] == "-":
             d = s
         else:
             try:
@@ -52,4 +52,3 @@ def log(name, msgs):
     os.makedirs("logs", exist_ok=True)
     with open(name, "w", encoding="utf-8") as fp:
         fp.write(msgs)
-    print(msgs)

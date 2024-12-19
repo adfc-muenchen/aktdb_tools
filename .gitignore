@@ -5,3 +5,4 @@ aktdb_data/*
 gg_data/*
 **/__pycache__/*
 DB Backups/*
+*.txt

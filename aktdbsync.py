@@ -190,7 +190,7 @@ class AktDBSync:
             if self.erstAnlage:
                 if len(x) != 0:
                     self.message.append("Schon bekannt: " + nameOf(row))
-                    continue  # for erstanlage member must be unknown
+                    # continue  # for erstanlage member must be unknown
                 if row["Mit Speicherung einverstanden?"] == "Nein":
                     self.message.append(
                         "Nicht mit Speicherung einverstanden: " + nameOf(row))
@@ -223,6 +223,8 @@ class AktDBSync:
                     member["id"] = id
                     self.google.addValue(
                         row["row"]-1, self.colNamesIdx[self.eingetragen], date2String(now, dateOnly=False))
+                if (self.erstAnlage):
+                    continue
             elif self.erstAnlage:
                 if self.phase == 3 and self.doIt:
                     # bei Erstanlage erst mal auf inaktiv setzen
