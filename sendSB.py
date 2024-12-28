@@ -18,9 +18,9 @@ entries["phone_primary"] = "entry.329829470"
 entries["phone_secondary"] = "entry.1481160666"
 entries["AGs"] = "entry.1781476495"
 entries["interests"] = "entry.1674515812"
-entries["latest_first_aid_training"] = "entry.1254417615"
-entries["next_first_aid_training"] = "entry.285304371"
-entries["status"] = "entry.583933307"
+# entries["latest_first_aid_training"] = "entry.1254417615"
+# entries["next_first_aid_training"] = "entry.285304371"
+# entries["status"] = "entry.583933307"
 # entries["Einverstanden mit Speicherung"] = "entry.273898972"
 # entries["Aktiv"] = "entry.2103848384"
 
@@ -56,12 +56,16 @@ class SendeSB:
         self.aktDB.loginADB()
         self.members = self.aktDB.getDBMembers()
         for row in self.members:
-            name = row["last_name"].strip() + "," + row["first_name"].strip()
+            name = row["last_name"].strip() + "," + \
+                row["first_name"].strip()
             self.dbMap[name] = 1
         self.sheetData = self.google.getSheetData()
         # wer hat alles schon geantwortet?
         for row in self.sheetData[1:]:
-            name = row[1].strip() + "," + row[2].strip()  # Nachname,Vorname
+            if len(row) < 15:
+                continue
+            name = row[1].strip() + "," + \
+                row[2].strip()  # Nachname,Vorname
             if name == "":
                 continue
             cnt = self.antwortMap.get(name)
@@ -108,8 +112,9 @@ class SendeSB:
             print("Keine Email Adresse für " + name)
             return
         self.emails += 1
-        anrede = f"Liebe(r) {row["first_name"].strip()} {
-            row["last_name"].strip()}"
+        # anrede = f"Liebe(r) {row["first_name"].strip()} {
+        #     row["last_name"].strip()}"
+        anrede = f"Servus {row["first_name"].strip()}"
         verifLink = verifLinkUrl + self.row2Params(row)
         msg = "Email an " + name + " mit URL " + verifLink
         self.message.append(msg)
@@ -119,6 +124,7 @@ class SendeSB:
         if self.doIt:
             self.google.gmail_send_message(
                 emailTo, "Aktualisierung Deiner Daten in der AktivenDB", txt, useHtml=True)
+        pass
 
     def row2Params(self, row):
         params = []
@@ -131,14 +137,14 @@ class SendeSB:
             if k == "adfc_id":
                 # v = 12345.0, number
                 params.append("&" + entry + "=" + encodeURIComponent(str(v)))
-            elif k == "latest_first_aid_training":
-                # v = date
-                params.append("&" + entry + "=" + date2String(v))
-            elif k == "next_first_aid_training":
-                ndate = date2String(v)
-                if len(ndate) >= 10 and ndate <= self.nowDate:
-                    ndate = ""
-                params.append("&" + entry + "=" + ndate)
+            # elif k == "latest_first_aid_training":
+            #     # v = date
+            #     params.append("&" + entry + "=" + date2String(v))
+            # elif k == "next_first_aid_training":
+            #     ndate = date2String(v)
+            #     if len(ndate) >= 10 and ndate <= self.nowDate:
+            #         ndate = ""
+            #     params.append("&" + entry + "=" + ndate)
             elif k == "phone_primary" or k == "phone_secondary":
                 # v = string, remove blank, -
                 v = " 1 2 3 - 4"

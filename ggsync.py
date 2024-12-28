@@ -585,7 +585,8 @@ class GGSync():
                         v["name"], "aktiv" if aktiv else "inaktiv")
         for t in self.dbTeams.values():
             for m in t["detail"]["members"]:
-                tmembersGrp[m["email_adfc"].lower()] = True
+                if m.get("email_adfc"):
+                    tmembersGrp[m["email_adfc"].lower()] = True
 
         print("\n\nBenutzer die nicht in der AktivenDB stehen:")
         for g in self.ggUsers.keys():
