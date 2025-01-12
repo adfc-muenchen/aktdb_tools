@@ -16,15 +16,15 @@ nullMember = {
     "adfc_id": None,
     "admin_comments": None,
     "reference": "",  # ??
-    "latest_first_aid_training": None,
-    "next_first_aid_training": None,
+    # "latest_first_aid_training": None,
+    # "next_first_aid_training": None,
     "gender": None,
     "interests": None,
     "latest_contact": None,
     "active": 1,
     "birthday": "",
-    "status": "",
-    "registered_for_first_aid_training": 0,
+    # "status": "",
+    # "registered_for_first_aid_training": 0,
     "responded_to_questionaire": 1,
     "responded_to_questionaire_at": None,
     "first_name": "",
@@ -57,18 +57,18 @@ colNamesMap = {
     "E-Mail-Adresse": "email_private",  # in Erstanlage
     "Telefonnummer 1": "phone_primary",
     "Telefonnummer 2": "phone_secondary",
-    "AGs": "AGs",
+    "AGs und OGs": "AGs",
     "Interessen": "interests",
     "ADFC-Mitgliedsnummer": "adfc_id",
-    "Letztes Erste-Hilfe-Training": "latest_first_aid_training",
-    "Nächstes Erste-Hilfe-Training": "next_first_aid_training",
-    "Registriert für ein Erste-Hilfe-Training?": "registered_for_first_aid_training",
+    # "Letztes Erste-Hilfe-Training": "latest_first_aid_training",
+    # "Nächstes Erste-Hilfe-Training": "next_first_aid_training",
+    # "Registriert für ein Erste-Hilfe-Training?": "registered_for_first_aid_training",
     "Mit Speicherung einverstanden?": "daccord",
     "Aktives Mitglied?": "active",
     "Zeitstempel": "responded_to_questionaire_at",
-    "Status": "status",
+    # "Status": "status",
 }
-emailRegexp = r"[a-z0-9]+(?:\.[a-z0-9]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"
+emailRegexp = r"[a-z0-9_-]+(?:\.[a-z0-9_-]+)*@(?:[a-z0-9_-](?:[a-z0-9_-]*[a-z0-9_-])?\.)+[a-z0-9_-](?:[a-z0-9_-]*[a-z0-9_-])?"
 
 
 def nameOf(row):
@@ -152,12 +152,12 @@ class AktDBSync:
                 self.addColumn(h)
                 self.colNames.append(h)
 
-    def fillEingetragen(self):
-        # Spalte "Eingezogen" auf heutiges Datum setzen
-        now = datetime.datetime.now()
-        d = now.strftime("%Y-%m-%d")
-        for c in self.completed:
-            self.google.addValue(c["row"], c["col"], d)
+    # def fillEingetragen(self):
+    #     # Spalte "Eingezogen" auf heutiges Datum setzen
+    #     now = datetime.datetime.now()
+    #     d = now.strftime("%Y-%m-%d")
+    #     for c in self.completed:
+    #         self.google.addValue(c["row"], c["col"], d)
 
     def setEntryMap(self, row):
         name = nameOf(row)
@@ -205,14 +205,15 @@ class AktDBSync:
                     continue  # we do not add members to AktivenDB here
             if self.phase == 1:
                 continue
+
+            exi = None if len(x) == 0 else self.members[x[0]]
             if self.phase == 2 and not self.erstAnlage:  # delete member if storage not wanted
                 if len(x) > 0 and row["Mit Speicherung einverstanden?"] == "Nein":
                     if self.doIt:
-                        self.aktDB.deleteDBMember(row["id"])
+                        self.aktDB.deleteDBMember(exi["id"])
                     del self.members[x[0]]
                     self.message.append("Gelöscht: " + nameOf(row))
                 continue
-            exi = None if len(x) == 0 else self.members[x[0]]
             member = self.mapRow(row, exi)
             now = datetime.datetime.now()
             if exi:
@@ -290,7 +291,7 @@ class AktDBSync:
                     self.message.append("Mitglied: " + nameOf(row) +
                                         " tritt aus der " + agName + " aus")
                     if self.phase == 3 and self.doIt:
-                        self.aktDB.deleteDBTeamMember(tm.id)
+                        self.aktDB.deleteDBTeamMember(tm["id"])
         return "\n".join(self.message)
 
     def mapRow(self, row, exi):
@@ -301,6 +302,8 @@ class AktDBSync:
         if member.get("project_teams") is None:
             member["project_teams"] = []
         for colName in self.colNames:
+            if colName == "E-Mail-Adresse" and not self.erstAnlage:
+                continue
             dbColName = colNamesMap.get(colName)
             if dbColName is None:
                 continue
@@ -309,14 +312,14 @@ class AktDBSync:
                 val = "undef@undef.de"
             if val is None or val == "":
                 continue
-            if colName == "AGs":
+            if dbColName == "AGs":
                 for ag in self.teams:
                     if val.find(ag["name"]) >= 0:
                         member["project_teams"].append(ag["name"])
             elif dbColName == "active":
                 member[dbColName] = 0 if val == "Nein" else 1
-            elif dbColName == "registered_for_first_aid_training":
-                member[dbColName] = 1 if val.lower().startsWith("ja") else 0
+            # elif dbColName == "registered_for_first_aid_training":
+            #     member[dbColName] = 1 if val.lower().startsWith("ja") else 0
             elif dbColName.startswith("email_"):
                 val = val.lower()
                 m = re.match(emailRegexp, val)
@@ -325,14 +328,18 @@ class AktDBSync:
                     val = ""
                 member[dbColName] = val
             else:
+                # hack for SB form error where phone was set to 1234
+                if dbColName.startswith("phone"):
+                    if val == "1234":
+                        val = exi[dbColName]
                 if isinstance(val, str):
                     val = val.strip()
                 member[dbColName] = val
         member["name"] = nameOf(row)
-        member["latest_first_aid_training"] = date2String(string2Date(
-            member["latest_first_aid_training"]))
-        member["next_first_aid_training"] = date2String(string2Date(
-            member["next_first_aid_training"]))
+        # member["latest_first_aid_training"] = date2String(string2Date(
+        #     member["latest_first_aid_training"]))
+        # member["next_first_aid_training"] = date2String(string2Date(
+        #     member["next_first_aid_training"]))
         member["latest_contact"] = date2String(
             string2Date(member["latest_contact"]))
         member["datum"] = member["responded_to_questionaire_at"]
@@ -426,11 +433,11 @@ class AktDBSync:
         elif exi:
             del member["active"]
 
-        if member["status"] != prev["status"]:
-            msg += "status:" + F'{prev["status"]}' + \
-                "=>" + F'{member["status"]}' + " "
-        elif exi:
-            del member["status"]
+        # if member["status"] != prev["status"]:
+        #     msg += "status:" + F'{prev["status"]}' + \
+        #         "=>" + F'{member["status"]}' + " "
+        # elif exi:
+        #     del member["status"]
 
         if member["responded_to_questionaire"] != prev["responded_to_questionaire"]:
             msg += "responded_to_questionaire:" + \
@@ -446,16 +453,16 @@ class AktDBSync:
         elif exi:
             del member["responded_to_questionaire_at"]
 
-        if exi is None:
-            if member["latest_first_aid_training"]:
-                self.message.append("Neues Mitglied " + member["name"] + " möchte als EHK-Datum " +
-                                    F'{member["latest_first_aid_training"]}')
-                member["latest_first_aid_training"] = None
-        else:
-            if member["latest_first_aid_training"] and member["latest_first_aid_training"] != exi["latest_first_aid_training"]:
-                self.message.append("Mitglied: " + F'{member["name"]}' + " möchte das EHK-Datum von " + F'{
-                    exi["latest_first_aid_training"]}' + " auf " + F'{member["latest_first_aid_training"]}' + " ändern")
-                member["latest_first_aid_training"] = exi["latest_first_aid_training"]
+        # if exi is None:
+        #     if member["latest_first_aid_training"]:
+        #         self.message.append("Neues Mitglied " + member["name"] + " möchte als EHK-Datum " +
+        #                             F'{member["latest_first_aid_training"]}')
+        #         member["latest_first_aid_training"] = None
+        # else:
+        #     if member["latest_first_aid_training"] and member["latest_first_aid_training"] != exi["latest_first_aid_training"]:
+        #         self.message.append("Mitglied: " + F'{member["name"]}' + " möchte das EHK-Datum von " + F'{
+        #             exi["latest_first_aid_training"]}' + " auf " + F'{member["latest_first_aid_training"]}' + " ändern")
+        #         member["latest_first_aid_training"] = exi["latest_first_aid_training"]
         if msg == "":
             return None
         msg = ("New" if exi is None else "Existing") + \

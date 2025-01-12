@@ -38,8 +38,7 @@ class GGSync():
         # TODO: funktion für mapGrpG2A, mapGrpA2G
         with open("conf/mapping.json", "r") as fp:
             self.mapGrpA2G = json.load(fp)
-            self.mapGrpG2A = {self.mapGrpA2G[k]
-                : k for k in self.mapGrpA2G.keys()}
+            self.mapGrpG2A = {self.mapGrpA2G[k]: k for k in self.mapGrpA2G.keys()}
         with open("conf/ignore_groups.json", "r") as fp:
             self.ignoreGroups = json.load(fp)
 
@@ -313,9 +312,9 @@ class GGSync():
                 id = priv.get("id")
                 print("addaddr", gun, "to", email_private, "with id", id)
                 self.message.append(
-                    "Private Adresse " + email_private + " zu " + gun + " hinzugefügt")
+                    "ADFC-Email " + gun + " zu " + email_private + " hinzugefügt")
                 if self.doIt:
-                    self.updDBMember(id, "email_adfc", gun)
+                    self.aktdb.updDBMember(id, {"email_adfc": gun})
                 priv["email_adfc"] = gun
                 self.dbMembers["email_adfc"][gun] = [priv]
                 self.addEmailAdfcInTeams(gun, addr)

@@ -8,7 +8,7 @@ hdrs = {"Content-Type": "application/json", "Accept": "application/json, text/pl
 def checkResp(resp):
     if resp.status >= 300:
         print("http error", resp.msg, resp.status,
-              resp.reason, "\nbody:", resp.read())
+              resp.reason, "\n")
 
 
 class AktDB:
@@ -132,9 +132,8 @@ class AktDB:
                    "?token=" + self.token, headers=hdrs)
         resp = hc.getresponse()
         checkResp(resp)
-        res = json.loads(resp.read())
         hc.close()
-        return res
+        return
 
     def sortDB(self, dbMemberList, dbTeamList):
         for dbm in dbMemberList:

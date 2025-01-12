@@ -100,7 +100,11 @@ class SendeSB:
             self.inaktiv += 1
             return
         emailTo1 = row["email_private"]
+        if emailTo1.startswith("undef"):
+            emailTo1 = ""
         emailTo2 = row["email_adfc"]
+        if emailTo2.startswith("undef"):
+            emailTo1 = ""
         emailTo = ""
         if emailTo1:
             emailTo = emailTo1
@@ -147,7 +151,6 @@ class SendeSB:
             #     params.append("&" + entry + "=" + ndate)
             elif k == "phone_primary" or k == "phone_secondary":
                 # v = string, remove blank, -
-                v = " 1 2 3 - 4"
                 params.append("&" + entry + "=" +
                               re.sub(r"[\s-]", "", str(v)))
             else:
