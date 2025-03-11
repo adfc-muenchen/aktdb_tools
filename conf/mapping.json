@@ -1,14 +1,15 @@
 {
-    "AG Jugend": "Jugend",
-    "AG Landkreis M\u00fcnchen": "AG Landkreis",
-    "AG Leitungen": "AG-Leitungen",
-    "AG RFS Anf\u00e4nger": "AG Radfahrschule Anf\u00e4ngerInnen",
-    "AG RFS Fortgeschrittene": "AG Radfahrschule Fortgeschrittene",
-    "AG TT Mountainbike": "AG Tagestouren Mountainbike",
-    "AG TT Rennrad": "AG Tagestouren Rennrad",
-    "AG TT Tourenrad": "AG Tagestouren Tourenrad",
-    "Event Team": "Event-Team",
-    "Fundraising": "Team Fundraising",
-    "OG Stra\u00dflach-Dingharting": "Ortsgruppe Strasslach-Dingharting",
-    "Vorstand": "Vorstand ADFC M\u00fcnchen"
+  "AG Jugend": "Jugend",
+  "AG Landkreis M\u00fcnchen": "AG Landkreis",
+  "AG Leitungen": "AG-Leitungen",
+  "AG RFS Anf\u00e4nger": "AG Radfahrschule Anf\u00e4ngerInnen",
+  "AG RFS Fortgeschrittene": "AG Radfahrschule Fortgeschrittene",
+  "AG TT Mountainbike": "AG Tagestouren Mountainbike",
+  "AG TT Rennrad": "AG Tagestouren Rennrad",
+  "AG TT Tourenrad": "AG Tagestouren Tourenrad",
+  "Event Team": "Event-Team",
+  "Fundraising": "Team Fundraising",
+  "OG Stra\u00dflach-Dingharting": "Ortsgruppe Strasslach-Dingharting",
+  "Vorstand": "Vorstand ADFC M\u00fcnchen",
+  "Standby": "in keiner AG aktiv, stehe aber für Einsätze zur Verfügung"
 }

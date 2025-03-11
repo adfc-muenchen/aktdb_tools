@@ -70,6 +70,8 @@ colNamesMap = {
 }
 emailRegexp = r"[a-z0-9_-]+(?:\.[a-z0-9_-]+)*@(?:[a-z0-9_-](?:[a-z0-9_-]*[a-z0-9_-])?\.)+[a-z0-9_-](?:[a-z0-9_-]*[a-z0-9_-])?"
 
+standbyText = "in keiner AG aktiv, stehe aber für Einsätze zur Verfügung"
+
 
 def nameOf(row):
     return row["Nachname"].strip() + ", " + row["Vorname"].strip()
@@ -203,6 +205,19 @@ class AktDBSync:
                         continue
                     self.message.append("Unbekannt oder neu: " + nameOf(row))
                     continue  # we do not add members to AktivenDB here
+            if self.erstAnlage:
+                if "@adfc-muenchen.de" in row["E-Mail-Adresse"]:
+                    self.message.append(
+                        "Falsche private Adresse " + nameOf(row))
+                    continue
+            else:
+                if "@adfc-muenchen.de" in row["Eigene Email-Adresse"]:
+                    self.message.append(
+                        "Falsche private Adresse " + nameOf(row))
+                    continue
+                if row["ADFC Email-Adresse"] and not "@adfc-muenchen.de" in row["ADFC Email-Adresse"]:
+                    self.message.append("Falsche ADFC-Adresse " + nameOf(row))
+                    continue
             if self.phase == 1:
                 continue
 
@@ -316,6 +331,8 @@ class AktDBSync:
                 for ag in self.teams:
                     if val.find(ag["name"]) >= 0:
                         member["project_teams"].append(ag["name"])
+                if val == standbyText:
+                    member["project_teams"].append("Standby")
             elif dbColName == "active":
                 member[dbColName] = 0 if val == "Nein" else 1
             # elif dbColName == "registered_for_first_aid_training":

@@ -100,11 +100,11 @@ class SendeSB:
             self.inaktiv += 1
             return
         emailTo1 = row["email_private"]
-        if emailTo1.startswith("undef"):
+        if emailTo1 and emailTo1.startswith("undef"):
             emailTo1 = ""
         emailTo2 = row["email_adfc"]
-        if emailTo2.startswith("undef"):
-            emailTo1 = ""
+        if emailTo2 and emailTo2.startswith("undef"):
+            emailTo2 = ""
         emailTo = ""
         if emailTo1:
             emailTo = emailTo1
@@ -122,12 +122,12 @@ class SendeSB:
         verifLink = verifLinkUrl + self.row2Params(row)
         msg = "Email an " + name + " mit URL " + verifLink
         self.message.append(msg)
-        # print(msg)
+        print(msg)
         txt = self.mailtxt.format(anrede=anrede, verifLink=verifLink)
 
         if self.doIt:
             self.google.gmail_send_message(
-                emailTo, "Aktualisierung Deiner Daten in der AktivenDB", txt, useHtml=True)
+                emailTo, "Erinnerung: Aktualisierung Deiner Daten in der AktivenDB", txt, useHtml=True)  # TODO
         pass
 
     def row2Params(self, row):
