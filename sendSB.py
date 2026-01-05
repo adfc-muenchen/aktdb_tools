@@ -83,6 +83,8 @@ class SendeSB:
             self.mailtxt = fp.read()
 
         for row in self.members:
+            # if not "uhlenberg" in (row.get("email_adfc", "") or ""):
+            #     continue
             self.sendeEmail(row)
         self.message.append(f"total {self.total} antworten {self.antworten} inaktiv {
             self.inaktiv} emails {self.emails}")
@@ -126,8 +128,11 @@ class SendeSB:
         txt = self.mailtxt.format(anrede=anrede, verifLink=verifLink)
 
         if self.doIt:
-            self.google.gmail_send_message(
-                emailTo, "Erinnerung: Aktualisierung Deiner Daten in der AktivenDB", txt, useHtml=True)  # TODO
+            try:
+                self.google.gmail_send_message(
+                    emailTo, "Aktualisierung Deiner Daten in der AktivenDB", txt, useHtml=True)  # TODO
+            except Exception as e:
+                print("could not send email", e)
         pass
 
     def row2Params(self, row):

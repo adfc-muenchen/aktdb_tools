@@ -28,9 +28,6 @@ def string2Date(s):
     return d
 
 
-"time data '20.07.2024' does not match format '%d.%m.%Y %H:%M:%S'"
-
-
 #  it seems that with "pyinstaller -F" tkinter (resp. TK) does not find data files relative to the MEIPASS dir
 def pyinst(path):
     path = path.strip()

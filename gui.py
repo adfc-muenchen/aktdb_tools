@@ -286,6 +286,8 @@ class Gui:
             print(msgs)
         except Exception as e:
             print("Exception", e)
+            log("exc", msgs)
+            print("logged as exc...")
         finally:
             btn.config(state=NORMAL)
             print("Fertig!")
