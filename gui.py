@@ -232,43 +232,44 @@ class Gui:
             self.root.mainloop()
 
     def run(self, logName, phase, doIt, btn):
+        self.text.delete("1.0", END)
+        btn.config(state=DISABLED)
+        if phase is not None:
+            phase = phase.get()
+            if phase == "Namen überprüfen":
+                phase = 1
+            elif phase == "Nicht einverstandene löschen":
+                phase = 2
+            else:
+                phase = 3
+        doIt = doIt.get()
+        doIt = doIt == onMsg
+        msgs = ""
+
+        if logName == "a2g":
+            ggsync = GGSync(doIt)
+            msgs = ggsync.syncAktdbToGgroups()
+            if doIt:
+                log("a2g", msgs)
+            print(msgs)
+            return
+
+        if logName == "ssb":
+            sendeSB = SendeSB(doIt)
+            msgs = sendeSB.sendeSB()
+            if doIt:
+                log("ssb", msgs)
+            return
+
+        if logName == "dim":
+            dim = DeleteInactiveMembers(doIt)
+            msgs = dim.deleteInactiveMembers()
+            if doIt:
+                log("dim", msgs)
+            print(msgs)
+            return
+
         try:
-            self.text.delete("1.0", END)
-            btn.config(state=DISABLED)
-            if phase is not None:
-                phase = phase.get()
-                if phase == "Namen überprüfen":
-                    phase = 1
-                elif phase == "Nicht einverstandene löschen":
-                    phase = 2
-                else:
-                    phase = 3
-            doIt = doIt.get()
-            doIt = doIt == onMsg
-
-            if logName == "a2g":
-                ggsync = GGSync(doIt)
-                msgs = ggsync.syncAktdbToGgroups()
-                if doIt:
-                    log("a2g", msgs)
-                print(msgs)
-                return
-
-            if logName == "ssb":
-                sendeSB = SendeSB(doIt)
-                msgs = sendeSB.sendeSB()
-                if doIt:
-                    log("ssb", msgs)
-                return
-
-            if logName == "dim":
-                dim = DeleteInactiveMembers(doIt)
-                msgs = dim.deleteInactiveMembers()
-                if doIt:
-                    log("dim", msgs)
-                print(msgs)
-                return
-
             if logName == "s2a":
                 aksync = AktDBSync(doIt, phase, "Antworten")
             elif logName == "e2a":
@@ -280,7 +281,9 @@ class Gui:
             aksync.checkColumns()
             aksync.getAktdbData()
             entries = aksync.getFormEntries()
-            msgs = aksync.storeMembers(entries)
+            entries = entries[0:2]
+            aksync.storeMembers(entries)
+            msgs = aksync.msgs()
             if doIt:
                 log(logName, msgs)
             print(msgs)

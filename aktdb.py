@@ -4,6 +4,13 @@ import http.client
 hdrs = {"Content-Type": "application/json", "Accept": "application/json, text/plain, */*",
         "Authorization": "Bearer undefined"}
 aktdbUrl = "aktdb.adfc-muenchen.de"
+# aktdbUrl = "aktivendb.adfc-muenchen.de"
+# aktdbUrl = "aktivendb-inertia.test"
+
+
+def connectAktDB():
+    return http.client.HTTPSConnection(aktdbUrl)
+    # return http.client.HTTPConnection(aktdbUrl)
 
 
 def checkResp(resp):
@@ -19,7 +26,7 @@ class AktDB:
     def loginADB(self):
         with open("secret/aktdb.creds") as fp:
             body = fp.read()
-        hc = http.client.HTTPSConnection(aktdbUrl)
+        hc = connectAktDB()
         hc.request(method="POST", url="/auth/login", headers=hdrs, body=body)
         resp = hc.getresponse()
         checkResp(resp)
@@ -29,7 +36,7 @@ class AktDB:
         print("token", self.token)  # for Postman
 
     def getDBMembers(self):
-        hc = http.client.HTTPSConnection(aktdbUrl)
+        hc = connectAktDB()
         hc.request(method="GET", url="/api/members?token=" +
                    self.token, headers=hdrs)
         resp = hc.getresponse()
@@ -39,7 +46,7 @@ class AktDB:
         return res
 
     def getDBMember(self, id):
-        hc = http.client.HTTPSConnection(aktdbUrl)
+        hc = connectAktDB()
         hc.request(method="GET", url="/api/member/" + str(id) +
                    "?token=" + self.token, headers=hdrs)
         resp = hc.getresponse()
@@ -49,7 +56,7 @@ class AktDB:
         return res
 
     def deleteDBMember(self, id):
-        hc = http.client.HTTPSConnection(aktdbUrl)
+        hc = connectAktDB()
         hc.request(method="DELETE", url="/api/member/" + str(id) +
                    "?token=" + self.token, headers=hdrs)
         resp = hc.getresponse()
@@ -62,7 +69,7 @@ class AktDB:
         return res
 
     def getDBTeams(self):
-        hc = http.client.HTTPSConnection(aktdbUrl)
+        hc = connectAktDB()
         hc.request(method="GET", url="/api/project-teams?token=" +
                    self.token, headers=hdrs)
         resp = hc.getresponse()
@@ -72,7 +79,7 @@ class AktDB:
         return res
 
     def getDBTeamMembers(self, id):
-        hc = http.client.HTTPSConnection(aktdbUrl)
+        hc = connectAktDB()
         hc.request(method="GET", url="/api/project-team/" +
                    str(id) + "?token=" + self.token, headers=hdrs)
         resp = hc.getresponse()
@@ -82,7 +89,7 @@ class AktDB:
         return res
 
     def setDBTeamEmail(self, id, email):
-        hc = http.client.HTTPSConnection(aktdbUrl)
+        hc = connectAktDB()
         body = json.dumps({"email": email})
         hc.request(method="PUT", url="/api/project-team/" +
                    str(id) + "?token=" + self.token, headers=hdrs, body=body)
@@ -93,7 +100,7 @@ class AktDB:
         return res
 
     def addDBMember(self, member):
-        hc = http.client.HTTPSConnection(aktdbUrl)
+        hc = connectAktDB()
         body = json.dumps(member)
         hc.request(method="POST", url="/api/member" + "?token=" +
                    self.token, headers=hdrs, body=body)
@@ -105,7 +112,7 @@ class AktDB:
         return res
 
     def updDBMember(self, id, body):
-        hc = http.client.HTTPSConnection(aktdbUrl)
+        hc = connectAktDB()
         body = json.dumps(body)
         hc.request(method="PUT", url="/api/member/" + str(id) +
                    "?token=" + self.token, headers=hdrs, body=body)
@@ -115,20 +122,20 @@ class AktDB:
         hc.close()
         return res
 
-    def storeDBTeamMember(self, teamMember):
-        hc = http.client.HTTPSConnection(aktdbUrl)
-        body = {}  # TODO
-        body = json.dumps(body)
-        hc.request(method="POST", url="/api/project-team-member" + "?token=" +
-                   self.token, headers=hdrs, body=body)
-        resp = hc.getresponse()
-        checkResp(resp)
-        res = json.loads(resp.read())
-        hc.close()
-        return res
+    # def storeDBTeamMember(self, teamMember):
+    #     hc = connectAktDB()
+    #     body = {}  # this function not called so far
+    #     body = json.dumps(body)
+    #     hc.request(method="POST", url="/api/project-team-member" + "?token=" +
+    #                self.token, headers=hdrs, body=body)
+    #     resp = hc.getresponse()
+    #     checkResp(resp)
+    #     res = json.loads(resp.read())
+    #     hc.close()
+    #     return res
 
     def deleteDBTeamMember(self, id):
-        hc = http.client.HTTPSConnection(aktdbUrl)
+        hc = connectAktDB()
         hc.request(method="DELETE", url="/api/project-team-member/" + str(id) +
                    "?token=" + self.token, headers=hdrs)
         resp = hc.getresponse()

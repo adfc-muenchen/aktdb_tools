@@ -1,5 +1,6 @@
 import copy
 import datetime
+import time
 import re
 from aktdb import AktDB
 from gg import Google
@@ -239,6 +240,7 @@ class AktDBSync:
                     member["id"] = id
                     self.google.addValue(
                         row["row"]-1, self.colNamesIdx[self.eingetragen], date2String(now, dateOnly=False))
+                    time.sleep(1)
                 if (self.erstAnlage):
                     continue
             elif self.erstAnlage:
@@ -248,6 +250,7 @@ class AktDBSync:
                     self.aktDB.addDBMember(member)
                     self.google.addValue(
                         row["row"]-1, self.colNamesIdx[self.eingetragen], date2String(now, dateOnly=False))
+                    time.sleep(1)
                     if member["email_private"]:
                         anrede = "Liebe(r) "
                         if member["gender"] == "M":
@@ -281,6 +284,8 @@ class AktDBSync:
             exiMember = self.aktDB.getDBMember(member["id"])
             exiAGs = exiMember["project_teams"]
             for agName in member["project_teams"]:
+                if agName.startswith("Vorstand"):
+                    continue
                 x = [i for i, t in enumerate(exiAGs) if t["name"] == agName]
                 if len(x) > 0:
                     continue
@@ -299,6 +304,8 @@ class AktDBSync:
                 # nicht mehr, soll der AG-Leiter machen
             for team in exiMember["project_teams"]:
                 agName = team["name"]
+                if agName.startswith("Vorstand"):
+                    continue
                 x = [i for i, t in enumerate(
                     member["project_teams"]) if t == agName]
                 if len(x) == 0:
@@ -307,6 +314,8 @@ class AktDBSync:
                                         " tritt aus der " + agName + " aus")
                     if self.phase == 3 and self.doIt:
                         self.aktDB.deleteDBTeamMember(tm["id"])
+
+    def msgs(self):
         return "\n".join(self.message)
 
     def mapRow(self, row, exi):
