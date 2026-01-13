@@ -3,14 +3,13 @@ import http.client
 
 hdrs = {"Content-Type": "application/json", "Accept": "application/json, text/plain, */*",
         "Authorization": "Bearer undefined"}
-aktdbUrl = "aktdb.adfc-muenchen.de"
-# aktdbUrl = "aktivendb.adfc-muenchen.de"
-# aktdbUrl = "aktivendb-inertia.test"
+# aktdbUrl = "aktdb.adfc-muenchen.de"
+aktdbUrl = "aktivendb.adfc-muenchen.de"
 
 
 def connectAktDB():
     return http.client.HTTPSConnection(aktdbUrl)
-    # return http.client.HTTPConnection(aktdbUrl)
+    # return http.client.HTTPConnection("aktivendb-inertia.test")
 
 
 def checkResp(resp):

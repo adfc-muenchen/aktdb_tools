@@ -281,7 +281,6 @@ class Gui:
             aksync.checkColumns()
             aksync.getAktdbData()
             entries = aksync.getFormEntries()
-            entries = entries[0:2]
             aksync.storeMembers(entries)
             msgs = aksync.msgs()
             if doIt:

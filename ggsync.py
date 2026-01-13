@@ -38,7 +38,8 @@ class GGSync():
         # TODO: funktion für mapGrpG2A, mapGrpA2G
         with open("conf/mapping.json", "r") as fp:
             self.mapGrpA2G = json.load(fp)
-            self.mapGrpG2A = {self.mapGrpA2G[k]: k for k in self.mapGrpA2G.keys()}
+            self.mapGrpG2A = {self.mapGrpA2G[k]
+                : k for k in self.mapGrpA2G.keys()}
         with open("conf/ignore_groups.json", "r") as fp:
             self.ignoreGroups = json.load(fp)
 
@@ -156,8 +157,6 @@ class GGSync():
                 grpName = mapped
             elif grpName.startswith("OG "):
                 grpName = "Ortsgruppe " + grpName[3:]
-            if "Vorstand" in grpName:
-                pass
             if grpName in self.ignoreGroups:
                 continue
             if grpName not in ggGrpNames:
@@ -364,8 +363,6 @@ class GGSync():
         for team in sorted(self.dbTeams.values(), key=lambda t: t["name"]):
             teamName = team["name"]
             if teamName in self.ignoreGroups:
-                continue
-            if "Vorstand" in teamName:
                 continue
             grpName = teamName
             mapped = self.mapGrpA2G.get(teamName)
